@@ -14,13 +14,15 @@
 // 
 
 #include "Node.h"
-
+#include "MyMessage_m.h"
 Define_Module(Node);
 
 void Node::initialize()
 {
-    double interval = exponential(1 / par("lambda").doubleValue());
-    scheduleAt(simTime() + interval, new cMessage(""));
+    //double interval = exponential(1 / par("lambda").doubleValue());
+    //scheduleAt(simTime() + interval, new cMessage(""));
+    //double interval = exponential(1 / par("lambda").doubleValue());
+    scheduleAt(simTime() + 0.1, new cMessage(""));
 }
 
 void Node::handleMessage(cMessage *msg)
@@ -39,14 +41,16 @@ void Node::handleMessage(cMessage *msg)
 
         std::stringstream ss;
         ss << rand;
+        MyMessage_Base * ms = new MyMessage_Base("hemo");
+        ms->setSeqNum(1);
         EV << "Sending "<< ss.str() <<" from source " << getIndex() << "\n";
         delete msg;
         msg = new cMessage(ss.str().c_str());
-        send(msg, "outs", dest);
+        send(ms, "outs", dest);
 
         double interval = exponential(1 / par("lambda").doubleValue());
         EV << ". Scheduled a new packet after " << interval << "s";
-        scheduleAt(simTime() + interval, new cMessage(""));
+        scheduleAt(simTime() + 1.0, new cMessage(""));
     }
     else {
         //atoi functions converts a string to int

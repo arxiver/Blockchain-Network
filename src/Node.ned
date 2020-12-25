@@ -22,7 +22,8 @@ simple Node
 {
     parameters:
         double lambda = default(2.0);
-      // int n = default(4);
+        double delayRand = default(10.0);
+        double modificationRand = default(10.0);
     gates:
         input ins[];
         output outs[];

@@ -25,6 +25,8 @@ simple Node
         int n = default(7);
         int m = default(3);
 
+        double delayRand = default(10.0);
+        double modificationRand = default(10.0);
     gates:
         input ins[];
         output outs[];

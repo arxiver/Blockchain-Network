@@ -15,50 +15,62 @@
 
 #include "Node.h"
 #include "MyMessage_m.h"
+#include <iostream>
+#include <fstream>
 Define_Module(Node);
 
 void Node::initialize()
 {
+    int n = par("n");
+    int w = (1 << (int)par("m")) - 1;
+    for (int i=0;i<n;++i){
+        ack.push_back(0);
+        nextFrame.push_back(0);
+    }
+
     //double interval = exponential(1 / par("lambda").doubleValue());
     //scheduleAt(simTime() + interval, new cMessage(""));
     //double interval = exponential(1 / par("lambda").doubleValue());
     scheduleAt(simTime() + 0.1, new cMessage(""));
+    std::ifstream MyReadFile(std::to_string(getIndex())+".txt");
+    std::string myText;
+    // Use a while loop together with the getline() function to read the file line by line
+    while (getline (MyReadFile, myText)) {
+      // Output the text from the file
+      EV << myText;
+    }
+
+    // Close the file
+    MyReadFile.close();
+
 }
 
 void Node::handleMessage(cMessage *msg)
 {
-    if (msg->isSelfMessage()) { //Host wants to send
-
-        int rand, dest;
-        do { //Avoid sending to yourself
-            rand = uniform(0, gateSize("outs"));
-        } while(rand == getIndex());
-
-        //Calculate appropriate gate number
-        dest = rand;
-        if (rand > getIndex())
-            dest--;
-
-        std::stringstream ss;
-        ss << rand;
-        MyMessage_Base * ms = new MyMessage_Base("hemo");
-        ms->setSeqNum(1);
-        EV << "Sending "<< ss.str() <<" from source " << getIndex() << "\n";
-        delete msg;
-        msg = new cMessage(ss.str().c_str());
-        send(ms, "outs", dest);
-
-        double interval = exponential(1 / par("lambda").doubleValue());
-        EV << ". Scheduled a new packet after " << interval << "s";
-        scheduleAt(simTime() + 1.0, new cMessage(""));
+    EV << ack[0] <<" "<< getIndex() <<"\n";
+    return ;
+    if (true) { //msg == timeoutEvent
+        // timeout expired, re-send packet and restart timer
+        //send(currentPacket->dup(), "out");
+        //scheduleAt(simTime() + timeout, timeoutEvent);
+    }
+    else if (true) {  // if acknowledgment received
+        //cancel timeout, prepare to send next packet, etc.
+        //cancelEvent(timeoutEvent);
+        //...
     }
     else {
-        //atoi functions converts a string to int
-        //Check if this is the proper destination
-        if (atoi(msg->getName()) == getIndex())
-            bubble("Message received");
-        else
-            bubble("Wrong destination");
-        delete msg;
+        //...
     }
+
 }
+
+/*
+ *
+ static bool between(seq_nr a, seq_nr b, seq_nr c){
+ // return true if a<=b<c circulary; false otherwise
+ return (((a<=b)&&(b<c)) || ((c<a)&&(a<=b)) || ((b<c) && (c<a)));
+ }
+ *
+ *
+ * */

@@ -29,9 +29,10 @@
  * packet MyMessage
  * {
  *     \@customize(true);  // see the generated C++ header for more info
- *     int seqNum;
- *     int mType;
- *     string mPayload;
+ *     int seqNum; // next frame to send
+ *     int ack; // frame expected
+ *     int mType; // type of the message
+ *     string mPayload; // message it self a.k.a. info
  *     bits checkBits;
  * }
  * </pre>
@@ -64,6 +65,7 @@ class MyMessage_Base : public ::omnetpp::cPacket
 {
   protected:
     int seqNum;
+    int ack;
     int mType;
     ::omnetpp::opp_string mPayload;
     bits checkBits;
@@ -74,25 +76,28 @@ class MyMessage_Base : public ::omnetpp::cPacket
   protected:
     // protected and unimplemented operator==(), to prevent accidental usage
     bool operator==(const MyMessage_Base&);
+
     // make assignment operator protected to force the user override it
     MyMessage_Base& operator=(const MyMessage_Base& other);
 
   public:
-    virtual ~MyMessage_Base();
     // make constructors protected to avoid instantiation
     MyMessage_Base(const char *name=nullptr, short kind=0);
     MyMessage_Base(const MyMessage_Base& other);
+    virtual ~MyMessage_Base();
     virtual MyMessage_Base *dup() const override
-    {
-        return new MyMessage_Base(*this);
-        throw omnetpp::cRuntimeError("You forgot to manually add a dup() function to class MyMessage");
-    }
+   {
+       return new MyMessage_Base(*this);
+       throw omnetpp::cRuntimeError("You forgot to manually add a dup() function to class MyMessage");
+   }
     virtual void parsimPack(omnetpp::cCommBuffer *b) const override;
     virtual void parsimUnpack(omnetpp::cCommBuffer *b) override;
 
     // field getter/setter methods
     virtual int getSeqNum() const;
     virtual void setSeqNum(int seqNum);
+    virtual int getAck() const;
+    virtual void setAck(int ack);
     virtual int getMType() const;
     virtual void setMType(int mType);
     virtual const char * getMPayload() const;

@@ -17,15 +17,20 @@
 #define __BLOCKCHAIN_NODE_H_
 
 #include <omnetpp.h>
-
+#include <vector>
+#include "MyMessage_m.h"
 using namespace omnetpp;
-
+typedef enum {frame_arrival, cksum_err, timeout, network_layer_ready} event_type;
 /**
  * TODO - Generated class
  */
 class Node : public cSimpleModule
 {
   protected:
+    int w;
+    std::vector<int> ack;
+    std::vector<int> nextFrame;
+    std::vector<std::vector<MyMessage_Base> > windowFrame;
     virtual void initialize();
     virtual void handleMessage(cMessage *msg);
 };

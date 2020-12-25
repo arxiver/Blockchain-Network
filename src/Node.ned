@@ -22,7 +22,9 @@ simple Node
 {
     parameters:
         double lambda = default(2.0);
-      // int n = default(4);
+        int n = default(7);
+        int m = default(3);
+
     gates:
         input ins[];
         output outs[];

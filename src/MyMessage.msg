@@ -23,8 +23,9 @@ cplusplus{{
 class noncobject bits; 
 packet MyMessage {
     @customize(true);  // see the generated C++ header for more info
-    int seqNum;
-    int mType;
-    string mPayload;
+    int seqNum; // next frame to send
+    int ack; // frame expected
+    int mType; // type of the message
+    string mPayload; // message it self a.k.a. info
     bits checkBits;
 }

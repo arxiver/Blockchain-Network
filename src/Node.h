@@ -17,17 +17,25 @@
 #define __BLOCKCHAIN_NODE_H_
 
 #include <omnetpp.h>
+#include <bitset>
+#include "MyMessage_m.h"
+typedef std::bitset<8> bits;
 
 using namespace omnetpp;
+unsigned char CheckBits(const char * string);
+bool CheckError(const char * string,const bits& checkBits);
 
 /**
  * TODO - Generated class
  */
 class Node : public cSimpleModule
 {
+
   protected:
     virtual void initialize();
     virtual void handleMessage(cMessage *msg);
 };
+
+
 
 #endif

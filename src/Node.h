@@ -46,6 +46,7 @@ class Node : public cSimpleModule
     virtual void handleMessage(cMessage *msg);
     unsigned char parityBits(const char * string);
     bool checkError(const char * string,const bits& checkBits);
+    bool between(int a,int b,int c);
 };
 
 

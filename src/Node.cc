@@ -75,15 +75,15 @@ void Node::handleMessage(cMessage *msg)
     { //Host wants to send
         int sentCount = 0;
         for(int i = 0 ; i < (int)par("n"); i++){
-            if(getIndex() == i || (SF[i] + S[i] >= messages[i].size()))
+            if(getIndex() == i || (S[i] >= messages[i].size()))
                 continue;
 
 
             sentCount++;
             std::string s = std::to_string(i);
-            std::string payload = messages[i][SF[i]+S[i]];
+            std::string payload = messages[i][S[i]];
             MyMessage_Base *msg_Base = new MyMessage_Base(s.c_str());
-            msg_Base->setSeqNum(S[i]);
+            msg_Base->setSeqNum(S[i]%(w+1));
             msg_Base->setAck(R[i]);
             msg_Base->setMPayload(payload.c_str());
             msg_Base->setMType(0);
@@ -95,11 +95,18 @@ void Node::handleMessage(cMessage *msg)
                 des--;
             send(msg_Base,"outs",des);
             EV << "I have send message: " << msg_Base->getMPayload()<<endl;
-            S[i] = (S[i]+1)%w;
+            if(S[i]-SF[i] >= w)
+                S[i] = SF[i];
+            else
+                S[i]++;
 
         }
         double interval = 1;
         scheduleAt(simTime() + interval, new cMessage(""));
+
+        // if (SF[i] == message[i].size()])
+        // if(test[i] == 1)
+
 
 
 
@@ -189,17 +196,37 @@ void Node::handleMessage(cMessage *msg)
         MyMessage_Base *mmsg = check_and_cast<MyMessage_Base *>(msg);
         if (atoi(mmsg->getName()) == getIndex())
         {
+            int src = (msg->getSenderModule()->getIndex());
+            while(between((SF[src]%(w+1)),mmsg->getAck(),S[src]%(w+1))){
+                EV<<"I'm in the function of incrementing SF"<<endl;
+                SF[src]++;
+            }
             if (checkError(mmsg->getMPayload(), mmsg->getCheckBits()))
             {
                 // TODO
-                // If (R[msg.src] == msg.seq) (R => expected)
-                // src = (msg->getSenderModule()->getIndex());
-                // if(src >= getIndex) => src++
-                // R[msg.src]++ (circularly)
-                // SF[msg.src]++
-                // SL[msg.src]++
-                // S[msg.src]--
-                // Note: We may need to increment the SF[i] with more than one in case of lossing in data
+
+                if(mmsg->getMType() == 0)
+                    if(R[src] == mmsg->getSeqNum()){
+                        if(SF[src] == messages[src].size()){
+                            std::string s = std::to_string(src);
+                            MyMessage_Base *msg_Base = new MyMessage_Base(s.c_str());
+                            msg_Base->setAck(R[src]);
+                            EV<<"I have send only ack with value "<<R[src]<<endl;
+                            msg_Base->setMType(1);
+                            int des = src > getIndex()? src-1:src;
+                            send(msg_Base,"outs",des);
+                        }
+                        R[src] = (R[src]+1)%(w+1);
+                    }
+
+                EV<<"module "<< (msg->getSenderModule()->getIndex())<<endl;
+                EV<<"Src "<<src<<endl;
+                EV<<"SF: " << SF[src]%(w+1)<<endl;
+                EV<<"ack: " << mmsg->getAck()<<endl;
+                EV<<"S: " << S[src]%(w+1)<<endl;
+
+
+
                 // Send ack with information if there are information
                 // Wait till timeout then,Send only ack if there is no information
                 // Else
@@ -217,6 +244,11 @@ void Node::handleMessage(cMessage *msg)
             bubble("Wrong destination");
         delete mmsg;
     }
+}
+
+bool Node::between(int a,int b,int c){
+ // return true if a<=b<c circulary; false otherwise
+ return (((a<=b)&&(b<c)) || ((c<a)&&(a<=b)) || ((b<c) && (c<a)));
 }
 
 /*

@@ -36,10 +36,12 @@ class Node : public cSimpleModule
   protected:
     int w;
     // REPLACE IT WITH S,SF,SL
-    std::vector<int> ack;
-    std::vector<int> nextFrame;
+    std::vector<int> SF;
+    std::vector<int> SL;
+    std::vector<int> S;
+    std::vector<int> R;
     // REPLACE IT WITH VECTOR OF STRINGS
-    std::vector<std::vector<MyMessage_Base> > windowFrame;
+    std::vector<std::vector<std::string> > messages;
     virtual void initialize();
     virtual void handleMessage(cMessage *msg);
     unsigned char parityBits(const char * string);

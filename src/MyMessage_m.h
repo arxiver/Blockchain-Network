@@ -31,7 +31,7 @@
  *     \@customize(true);  // see the generated C++ header for more info
  *     int seqNum; // next frame to send
  *     int ack; // frame expected
- *     int mType; // type of the message
+ *     int mType; // type of the message (0 => message and ack,1 => only ack)
  *     string mPayload; // message it self a.k.a. info
  *     bits checkBits;
  * }
@@ -76,20 +76,18 @@ class MyMessage_Base : public ::omnetpp::cPacket
   protected:
     // protected and unimplemented operator==(), to prevent accidental usage
     bool operator==(const MyMessage_Base&);
+    // make constructors protected to avoid instantiation
 
     // make assignment operator protected to force the user override it
     MyMessage_Base& operator=(const MyMessage_Base& other);
 
   public:
-    // make constructors protected to avoid instantiation
+
     MyMessage_Base(const char *name=nullptr, short kind=0);
     MyMessage_Base(const MyMessage_Base& other);
+
     virtual ~MyMessage_Base();
-    virtual MyMessage_Base *dup() const override
-   {
-       return new MyMessage_Base(*this);
-       throw omnetpp::cRuntimeError("You forgot to manually add a dup() function to class MyMessage");
-   }
+    virtual MyMessage_Base *dup() const override { return new MyMessage_Base(*this); throw omnetpp::cRuntimeError("You forgot to manually add a dup() function to class MyMessage"); }
     virtual void parsimPack(omnetpp::cCommBuffer *b) const override;
     virtual void parsimUnpack(omnetpp::cCommBuffer *b) override;
 
@@ -105,6 +103,8 @@ class MyMessage_Base : public ::omnetpp::cPacket
     virtual bits& getCheckBits();
     virtual const bits& getCheckBits() const {return const_cast<MyMessage_Base*>(this)->getCheckBits();}
     virtual void setCheckBits(const bits& checkBits);
+
+
 };
 
 

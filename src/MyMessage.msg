@@ -25,7 +25,7 @@ packet MyMessage {
     @customize(true);  // see the generated C++ header for more info
     int seqNum; // next frame to send
     int ack; // frame expected
-    int mType; // type of the message
+    int mType; // type of the message (0 => message and ack,1 => only ack)
     string mPayload; // message it self a.k.a. info
     bits checkBits;
 }

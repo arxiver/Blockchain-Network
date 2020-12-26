@@ -35,8 +35,10 @@ class Node : public cSimpleModule
 
   protected:
     int w;
+    // REPLACE IT WITH S,SF,SL
     std::vector<int> ack;
     std::vector<int> nextFrame;
+    // REPLACE IT WITH VECTOR OF STRINGS
     std::vector<std::vector<MyMessage_Base> > windowFrame;
     virtual void initialize();
     virtual void handleMessage(cMessage *msg);

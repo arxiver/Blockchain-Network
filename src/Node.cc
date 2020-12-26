@@ -63,7 +63,12 @@ void Node::initialize()
     // Close the file
     MyReadFile.close();
     */
-
+    // TODO
+    // READ WHOLE FILE AND MAKE IT INSIDE EACH NODE WITH CORESPONDINIG SEND
+    // SL, SF, S IS 3 VECTORS WITH LENGTH N
+    // SET ALL OF LENGTHS TO ONE
+    // E.G. MSG IS 1 HELLOWORLD
+    // DST IS ONE AND PAYLOAD IS HELLOWORLD
     double interval = exponential(1 / par("lambda").doubleValue());
     scheduleAt(simTime() + interval, new cMessage(""));
 }
@@ -71,10 +76,17 @@ void Node::initialize()
 void Node::handleMessage(cMessage *msg)
 {
 
+    // SELF MESSAGE? TIMEOUT
+
     if (msg->isSelfMessage())
     { //Host wants to send
 
         int rand, dest;
+        if(gateSize("outs")==1){
+            dest = 0;
+            rand = 1-getIndex();
+        }
+        else{
         do
         { //Avoid sending to yourself
             rand = uniform(0, gateSize("outs"));
@@ -84,7 +96,7 @@ void Node::handleMessage(cMessage *msg)
         dest = rand;
         if (rand > getIndex())
             dest--;
-
+        }
         std::stringstream ss;
         ss << rand;
 
@@ -143,6 +155,24 @@ void Node::handleMessage(cMessage *msg)
         EV << ". Scheduled a new packet after " << interval << "s";
         scheduleAt(simTime() + interval, new cMessage(""));
     }
+    // RECEIVED FROM SOMEWHERE ELSE. EACH MESSAGE SHOULD HAVE IT'S SOURCE
+    // VERIFIY IT IS OKAY
+    // SEND ACK
+    // IF MESSAGE IS ACK FROM SOMEWHERE ELSE
+    // CHECK IF IT IS THE WAITED INDEX? IF YES ADVANCE THE R AND SEND ACK
+    //
+    /*
+     * function receiver is
+     *   Rn := 0 (at init)
+     *   Do the following forever:
+     *   if the packet received = Rn and the packet is error free then
+     *       Accept the packet and send it to a higher layer
+     *       Rn := Rn + 1
+     *   else
+     *       Refuse packet
+     *   Send a Request for Rn
+     *
+     */
     else
     {
         //atoi functions converts a string to int

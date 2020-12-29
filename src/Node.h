@@ -15,16 +15,16 @@
 
 #ifndef __BLOCKCHAIN_NODE_H_
 #define __BLOCKCHAIN_NODE_H_
-
+#define NETWORK_READY_INTERVAL 1
+#define TIMEOUT_INTERVAL 3
 #include <omnetpp.h>
 #include <vector>
-#include "MyMessage_m.h"
-using namespace omnetpp;
-typedef enum {frame_arrival, cksum_err, timeout, network_layer_ready} event_type;
+#include <algorithm>
+#include <unordered_map>
 #include <bitset>
+#include <iostream>
+#include <fstream>
 #include "MyMessage_m.h"
-typedef std::bitset<8> bits;
-
 using namespace omnetpp;
 
 /**
@@ -34,19 +34,29 @@ class Node : public cSimpleModule
 {
 
   protected:
-    int w;
-    // REPLACE IT WITH S,SF,SL
-    std::vector<int> SF;
-    std::vector<int> SL;
-    std::vector<int> S;
-    std::vector<int> R;
-    // REPLACE IT WITH VECTOR OF STRINGS
-    std::vector<std::vector<std::string> > messages;
+    int windowSize;             // a.k.a. MAX_SEQ (2^m - 1)
+    int peerIndex;              // Index of the peer of this node.
+    bool InitConnection;        // Does this node has peer and would it start connection
+    int nextFrameToSend;        // a.k.a. "S" out-bound stream, next frame outgoing
+    int ackExpected;            // a.k.a. "SF" oldest frame unacknowledged
+    int framExpected;           // a.k.a. "R" next frame expected on in-bound stream
+    std::vector<std::string> buffer; // buffer array o messages
+    int nBuffered;              // number of buffered packets/frames
+    std::unordered_map<int, cMessage*> timers;
     virtual void initialize();
     virtual void handleMessage(cMessage *msg);
+    void organize();
+    void findMyPeer();
+    std::string randString();
+    MyMessage_Base * makeMessage(std::string );
+    std::vector<std::string> split (const std::string &s);
+    std::string join(std::vector<std::string> vec);
+    bool between(int a,int b,int c);
+    void increment(int & a);
     unsigned char parityBits(const char * string);
     bool checkError(const char * string,const bits& checkBits);
-    bool between(int a,int b,int c);
+    bool modification(std::string &mypayload, bool Pmodify);
+    void sendData(MyMessage_Base *msg, int dest, bool Pdelay);
 };
 
 

@@ -9,6 +9,7 @@ network Blockchain
 {
     parameters:
         int n = default(5);
+        string peers = default("");
     submodules:
         nodes[n]: Node ;
     connections: 

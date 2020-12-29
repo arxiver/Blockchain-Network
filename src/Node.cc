@@ -1,13 +1,7 @@
 #include "Node.h"
-#include "MyMessage_m.h"
-#include <iostream>
-#include <fstream>
 
 Define_Module(Node);
 
-//===================================
-//  KHALED
-//===================================
 unsigned char Node::parityBits(const char *string)
 {
 
@@ -19,9 +13,6 @@ unsigned char Node::parityBits(const char *string)
     return checkBits;
 }
 
-//===================================
-//  KHALED
-//===================================
 bool Node::checkError(const char *string, const bits &checkBits)
 {
     unsigned char checkChar = parityBits(string);
@@ -30,247 +21,204 @@ bool Node::checkError(const char *string, const bits &checkBits)
     return c == checkChar;
 }
 
-void Node::initialize()
-{
-
-    int n = par("n");
-    w = (1 << (int)par("m")) - 1;
-    std::vector<std::string> empty;
-
-    for (int i=0; i<n; i++){
-        messages.push_back(empty);
-        SF.push_back(0);
-        SL.push_back(0);
-        S.push_back(0);
-        R.push_back(0);
+std::string Node::randString(){
+    int MAX_MSG_SIZE = 10;
+    int ASCII_START = 97; // start at 65 for more range
+    int ASCII_END = 122; // end at 128 for including symbols
+    int msgSize = uniform(0,MAX_MSG_SIZE) + 3;
+    std::string msg = "";
+    for(int i=0;i<msgSize;++i){
+        msg += (char)(int)uniform(ASCII_START,ASCII_END);
     }
-
-
-    std::ifstream myReadFile(std::to_string(getIndex())+".txt");
-    std::string myText;
-
-    while (getline (myReadFile, myText)) {
-        int index = myText.find(" ");
-        std ::string dest(myText.begin(),myText.begin()+index);
-        std ::string msg(myText.begin()+index,myText.end());
-        messages[atoi(dest.c_str())].push_back(msg);
-    }
-
-    myReadFile.close();
-    // TODO
-    // READ WHOLE FILE AND MAKE IT INSIDE EACH NODE WITH CORESPONDINIG SEND
-    // SL, SF, S IS 3 VECTORS WITH LENGTH N
-    // SET ALL OF LENGTHS TO ONE
-    // E.G. MSG IS 1 HELLOWORLD
-    // DST IS ONE AND PAYLOAD IS HELLOWORLD
-    double interval = 1;
-    scheduleAt(simTime() + interval, new cMessage(""));
+    return msg;
 }
 
+std::vector<std::string> Node::split (const std::string &s) {
+    std::vector<std::string> result;
+    char delim = ' ';
+    std::stringstream ss (s);
+    std::string item;
+    while (getline (ss, item, delim)) {
+        result.push_back (item);
+    }
+    return result;
+}
+
+std::string Node::join(std::vector<std::string> vec){
+    std::string joined = "";
+    for(int i=0;i<vec.size(); i++){
+        joined += vec[i];
+        if(i != vec.size()-1){
+            joined += " ";
+        }
+    }
+    return joined;
+}
+
+void Node::organize(){
+
+    //getParentModule()->par("peers").setStringValue("hello World");
+    //std::string peersStr = getParentModule()->par("peers").stringValue();
+    // std::vector<std::string> peers = split(peersStr);
+    int n = getParentModule()->par("n").intValue();
+    n = n%2 ? n-1 : n;
+    std::vector<int> temp;
+    for (int i=0;i<n;++i){
+        temp.push_back(i);
+    }
+    std::vector<std::string> vec;
+    for (int i=0;i<n;++i){
+        int pick = (int)(uniform(0,temp.size()) + rand()) % temp.size();
+        vec.push_back(std::to_string(temp[pick]));
+        temp.erase(temp.begin()+pick,temp.begin()+pick+1);
+        //EV<<vec[i]<<endl;
+    }
+    std::string peers = join(vec);
+    getParentModule()->par("peers").setStringValue(peers);
+}
+
+void Node::findMyPeer(){
+    peerIndex = -1;
+    InitConnection = false;
+    int n = getParentModule()->par("n").intValue();
+    n = n%2 ? n-1 : n;
+    std::string peersStr = getParentModule()->par("peers").stringValue();
+    std::vector<std::string> peers = split(peersStr);
+    for(int i=0;i<n-1;i+=2){
+        if(peers[i] == std::to_string(getIndex())){
+            peerIndex = std::atoi(peers[i+1].c_str());
+            InitConnection = true;
+        }
+        else if(peers[i+1] == std::to_string(getIndex())){
+            peerIndex = std::atoi(peers[i].c_str());
+        }
+    }
+}
+
+void Node::initialize()
+{
+    if (getIndex()==0){
+        organize();
+    }
+    findMyPeer();
+    EV<<getIndex()<<", "<<peerIndex<<endl;
+    peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
+    if (peerIndex == -1) return;
+    double interval = InitConnection? 1 : 1.5;
+    scheduleAt(simTime() + interval, new cMessage("network"));
+    windowSize = (1 << (int)par("m")) - 1;
+    nextFrameToSend = 0;
+    ackExpected = 0;
+    framExpected = 0;
+    nBuffered = 0;
+}
 void Node::handleMessage(cMessage *msg)
 {
-
-    // SELF MESSAGE? TIMEOUT
     if (msg->isSelfMessage())
-    { //Host wants to send
-        int sentCount = 0;
-        for(int i = 0 ; i < (int)par("n"); i++){
-            if(getIndex() == i || (S[i] >= messages[i].size()))
-                continue;
-
-
-            sentCount++;
-            std::string s = std::to_string(i);
-            std::string payload = messages[i][S[i]];
-            MyMessage_Base *msg_Base = new MyMessage_Base(s.c_str());
-            msg_Base->setSeqNum(S[i]%(w+1));
-            msg_Base->setAck(R[i]);
-            msg_Base->setMPayload(payload.c_str());
-            msg_Base->setMType(0);
-            msg_Base->setCheckBits(std::bitset<8>(parityBits(payload.c_str())));
-
-
-            int des = i;
-            if(des > getIndex())
-                des--;
-            send(msg_Base,"outs",des);
-            EV << "I have send message: " << msg_Base->getMPayload()<<endl;
-            if(S[i]-SF[i] >= w)
-                S[i] = SF[i];
-            else
-                S[i]++;
-
-        }
-        double interval = 1;
-        scheduleAt(simTime() + interval, new cMessage(""));
-
-        // if (SF[i] == message[i].size()])
-        // if(test[i] == 1)
-
-
-
-
-//        int rand, dest;
-//        if(gateSize("outs")==1){
-//            dest = 0;
-//            rand = 1-getIndex();
-//        }
-//        else{
-//        do
-//        { //Avoid sending to yourself
-//            rand = uniform(0, gateSize("outs"));
-//        } while (rand == getIndex());
-//
-//        //Calculate appropriate gate number
-//        dest = rand;
-//        if (rand > getIndex())
-//            dest--;
-//        }
-//        std::stringstream ss;
-//        ss << rand;
-
-        // take input from user
-        //std::cout<<"Enter Payload";
-        //std::string strtmp;
-        //std::cin >> strtmp;
-        //const char* string = strtmp.c_str();
-        //
-
-        //payload
-//        const char *string = "Hello World";
-//
-//        EV << "Sending " << ss.str() << " from source " << getIndex() << "\n";
-
-        // Message Data
-//        MyMessage_Base *msg_Base = new MyMessage_Base(ss.str().c_str());
-//        msg_Base->setSeqNum(1);
-//        msg_Base->setMPayload(string);
-//        msg_Base->setCheckBits(std::bitset<8>(parityBits(string)));
-//
-//        //modification
-//        int modificationRand = uniform(0, 1) * 10;
-//        if (modificationRand >= par("modificationRand").doubleValue())
-//        {
-//            int randBit = uniform(0, 7); // random bit in a char
-//            unsigned char oneBitRandom = std::pow(2, randBit);
-//
-//            std::string mypayload = msg_Base->getMPayload();
-//
-//            int randByte = uniform(0, mypayload.length()); // random char
-//
-//            mypayload[randByte] = (unsigned char)mypayload[randByte] ^ oneBitRandom;
-//            msg_Base->setMPayload(mypayload.c_str());
-//
-//            //EV<<"modificationRand is "<<std::to_string(modificationRand)<<endl;
-//            EV << "modifying message, modified bit = " << std::to_string(randBit) << ", modified char = " << std::to_string(randByte) << endl;
-//        }
-//        //
-//
-//        //delay
-//        int delayRand = uniform(0, 1) * 10;
-//        if (delayRand >= par("delayRand").doubleValue())
-//        {
-//            //EV<<"delayRand is "<<std::to_string(delayRand)<<endl;
-//            EV << "delaying message with 1 sec " << endl;
-//            sendDelayed(msg_Base, 1, "outs", dest);
-//        }
-//        else
-//        {
-//            send(msg_Base, "outs", dest);
-//        }
-//        delete msg;
-//
-//        double interval = exponential(1 / par("lambda").doubleValue());
-//        EV << ". Scheduled a new packet after " << interval << "s";
-//        scheduleAt(simTime() + interval, new cMessage(""));
-    }
-    // RECEIVED FROM SOMEWHERE ELSE. EACH MESSAGE SHOULD HAVE IT'S SOURCE
-    // VERIFIY IT IS OKAY
-    // SEND ACK
-    // IF MESSAGE IS ACK FROM SOMEWHERE ELSE
-    // CHECK IF IT IS THE WAITED INDEX? IF YES ADVANCE THE R AND SEND ACK
-    //
-
-    else
     {
-        MyMessage_Base *mmsg = check_and_cast<MyMessage_Base *>(msg);
-        if (atoi(mmsg->getName()) == getIndex())
-        {
-            int src = (msg->getSenderModule()->getIndex());
-            while(between((SF[src]%(w+1)),mmsg->getAck(),S[src]%(w+1))){
-                EV<<"I'm in the function of incrementing SF"<<endl;
-                SF[src]++;
-            }
-            if (checkError(mmsg->getMPayload(), mmsg->getCheckBits()))
-            {
-                // TODO
-
-                if(mmsg->getMType() == 0)
-                    if(R[src] == mmsg->getSeqNum()){
-                        if(SF[src] == messages[src].size()){
-                            std::string s = std::to_string(src);
-                            MyMessage_Base *msg_Base = new MyMessage_Base(s.c_str());
-                            msg_Base->setAck(R[src]);
-                            EV<<"I have send only ack with value "<<R[src]<<endl;
-                            msg_Base->setMType(1);
-                            int des = src > getIndex()? src-1:src;
-                            send(msg_Base,"outs",des);
-                        }
-                        R[src] = (R[src]+1)%(w+1);
-                    }
-
-                EV<<"module "<< (msg->getSenderModule()->getIndex())<<endl;
-                EV<<"Src "<<src<<endl;
-                EV<<"SF: " << SF[src]%(w+1)<<endl;
-                EV<<"ack: " << mmsg->getAck()<<endl;
-                EV<<"S: " << S[src]%(w+1)<<endl;
-
-
-
-                // Send ack with information if there are information
-                // Wait till timeout then,Send only ack if there is no information
-                // Else
-                // Ignore the message
-                bubble("Message received with no error");
-            }
-            else
-            {
-                bubble("Message received WITH ERROR");
-                EV << "Noisy Message received = " << mmsg->getMPayload() << endl;
-
+        if(!(strcmp(msg->getName(),"network"))){
+            // TODO add framing here and rest of functionality,
+            // make it as a wrapper function like modification.
+            std::string s = randString(); //std::to_string(nextFrameToSend);
+            modification(s, false);
+            nBuffered++;
+            buffer.push_back(s);
+            MyMessage_Base *sendMsg = makeMessage(s);
+            sendData(sendMsg, peerIndex, false);
+            increment(nextFrameToSend);
+        }
+        else if(!(strcmp(msg->getName(), "timeout"))){
+            nextFrameToSend = ackExpected;
+            for(int i=0; i<nBuffered; ++i){
+                MyMessage_Base *sendMsg = makeMessage(buffer[i]);
+                send(sendMsg,"outs",peerIndex);
+                increment(nextFrameToSend);
             }
         }
-        else
-            bubble("Wrong destination");
-        delete mmsg;
     }
+    else {
+        MyMessage_Base *receivedMsg = check_and_cast<MyMessage_Base *>(msg);
+        // if there is no error acknowledge it else discard it
+        // checkError i.e. (if it error free)
+        bool isErrorFree = checkError(receivedMsg->getMPayload(), receivedMsg->getCheckBits());
+        if (isErrorFree && framExpected == receivedMsg->getSeqNum()){
+            EV<<"Received correctly"<<endl;
+            increment(framExpected);
+            while(between(ackExpected,receivedMsg->getAck(),nextFrameToSend)){
+                nBuffered--;
+                buffer.erase(buffer.begin(),buffer.begin()+1);
+                if (timers[ackExpected] != nullptr){
+                    cancelAndDelete(timers[ackExpected]);
+                    timers[ackExpected] = nullptr;
+                }
+                increment(ackExpected);
+            }
+        }
+        if(nBuffered < windowSize)
+            scheduleAt(simTime() + NETWORK_READY_INTERVAL, new cMessage("network"));
+    }
+    EV<<"---------------------------------"<<endl;
+    EV<<"Node: "<< getIndex() <<","<<endl;
+    EV<<"nextFrameToSend: "<< nextFrameToSend<<","<<endl;
+    EV<<"ackExpected: "<< ackExpected<<","<<endl;
+    EV<<"framExpected: "<< framExpected<<","<<endl;
+    EV<<"nBuffered: "<< nBuffered<<","<<endl;
+    EV<<"---------------------------------"<<endl;
+}
+
+MyMessage_Base* Node::makeMessage(std::string s){
+    MyMessage_Base *msg = new MyMessage_Base(s.c_str());
+    msg->setSeqNum(nextFrameToSend);
+    msg->setAck((framExpected+windowSize)%(windowSize+1));
+    msg->setMPayload(s.c_str());
+    msg->setMType(0);
+    msg->setCheckBits(std::bitset<8>(parityBits(s.c_str())));
+    if (timers[nextFrameToSend] != nullptr){
+        cancelAndDelete(timers[nextFrameToSend]);
+        timers[nextFrameToSend] = nullptr;
+    }
+    timers[nextFrameToSend] = new cMessage("timeout");
+    scheduleAt(simTime() + TIMEOUT_INTERVAL, timers[nextFrameToSend]);
+    return msg;
+}
+
+void Node::increment(int &a){
+    // circular(x-1) =(x>0) ? (x--) : MAX_SEQ
+    a = (a+1) % (windowSize+1);
+    return;
 }
 
 bool Node::between(int a,int b,int c){
- // return true if a<=b<c circulary; false otherwise
- return (((a<=b)&&(b<c)) || ((c<a)&&(a<=b)) || ((b<c) && (c<a)));
+ // return true if a<=b<c circular; false otherwise
+    return (((a<=b)&&(b<c)) || ((c<a)&&(a<=b)) || ((b<c) && (c<a)));
 }
 
-/*
- *
- static bool between(seq_nr a, seq_nr b, seq_nr c){
- // return true if a<=b<c circulary; false otherwise
- return (((a<=b)&&(b<c)) || ((c<a)&&(a<=b)) || ((b<c) && (c<a)));
- }
- *
- *
- * EV << ack[0] <<" "<< getIndex() <<"\n";
-    return ;
-    if (true) { //msg == timeoutEvent
-        // timeout expired, re-send packet and restart timer
-        //send(currentPacket->dup(), "out");
-        //scheduleAt(simTime() + timeout, timeoutEvent);
+void Node::sendData(MyMessage_Base *msg, int dest, bool Pdelay){
+    // P(delay): [boolean] probability of delaying exist
+    int delayRand = uniform(0, 1) * 10;
+    if (delayRand >= par("delayRand").doubleValue() && Pdelay)
+    {
+        EV << "delaying message with 1 second " << endl;
+        sendDelayed(msg, 1, "outs", dest);
     }
-    else if (true) {  // if acknowledgment received
-        //cancel timeout, prepare to send next packet, etc.
-        //cancelEvent(timeoutEvent);
-        //...
+    else
+    {
+        send(msg, "outs", dest);
     }
-    else {
-        //...
- * */
+}
+
+bool Node::modification(std::string &mypayload, bool Pmodify){
+    // P(modify): [boolean] probability of modification exist
+    int modificationRand = uniform(0, 1) * 10;
+    if (modificationRand >= par("modificationRand").doubleValue() && Pmodify)
+    {
+        int randBit = uniform(0, 7); // random bit in a char
+        unsigned char oneBitRandom = std::pow(2, randBit);
+        int randByte = uniform(0, mypayload.length()); // random char
+
+        mypayload[randByte] = (unsigned char)mypayload[randByte] ^ oneBitRandom;
+        EV << "modifying message, modified bit = " << std::to_string(randBit) << ", modified char = " << std::to_string(randByte) << endl;
+        return true;
+    }
+    return false;
+}

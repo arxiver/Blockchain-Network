@@ -104,33 +104,47 @@ void Node::initialize()
     EV<<getIndex()<<", "<<peerIndex<<endl;
     peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
     if (peerIndex == -1) return;
-    double interval = InitConnection? 1 : 1.5;
+    double interval = InitConnection? 0.5 : 1;
     scheduleAt(simTime() + interval, new cMessage("network"));
     windowSize = (1 << (int)par("m")) - 1;
     nextFrameToSend = 0;
     ackExpected = 0;
     framExpected = 0;
     nBuffered = 0;
+    fileIterator = 0;
+    terminate = false;
+    readMessagesFile();
 }
+
 void Node::handleMessage(cMessage *msg)
 {
+    if(terminate) {
+    // remove all time out events inside this node
+        clearTimeoutEvents();
+        return;
+    }
     if (msg->isSelfMessage())
     {
         if(!(strcmp(msg->getName(),"network"))){
             // TODO add framing here and rest of functionality,
             // make it as a wrapper function like modification.
-            std::string s = randString(); //std::to_string(nextFrameToSend);
+            // Options, randString(); // std::to_string(nextFrameToSend);
+            std::string s = messages[fileIterator];
             modification(s, false);
             nBuffered++;
+            fileIterator++;
             buffer.push_back(s);
-            MyMessage_Base *sendMsg = makeMessage(s);
+            bool isLastMessage = fileIterator == (messages.size()-1);
+            if (isLastMessage)
+                terminate = true;
+            MyMessage_Base *sendMsg = makeMessage(s, isLastMessage);
             sendData(sendMsg, peerIndex, false);
             increment(nextFrameToSend);
         }
         else if(!(strcmp(msg->getName(), "timeout"))){
             nextFrameToSend = ackExpected;
             for(int i=0; i<nBuffered; ++i){
-                MyMessage_Base *sendMsg = makeMessage(buffer[i]);
+                MyMessage_Base *sendMsg = makeMessage(buffer[i], false);
                 send(sendMsg,"outs",peerIndex);
                 increment(nextFrameToSend);
             }
@@ -140,9 +154,12 @@ void Node::handleMessage(cMessage *msg)
         MyMessage_Base *receivedMsg = check_and_cast<MyMessage_Base *>(msg);
         // if there is no error acknowledge it else discard it
         // checkError i.e. (if it error free)
+        if (receivedMsg->getMType()){
+            terminate = true;
+        }
         bool isErrorFree = checkError(receivedMsg->getMPayload(), receivedMsg->getCheckBits());
         if (isErrorFree && framExpected == receivedMsg->getSeqNum()){
-            EV<<"Received correctly"<<endl;
+            //EV<<"Received correctly"<<endl;
             increment(framExpected);
             while(between(ackExpected,receivedMsg->getAck(),nextFrameToSend)){
                 nBuffered--;
@@ -154,8 +171,12 @@ void Node::handleMessage(cMessage *msg)
                 increment(ackExpected);
             }
         }
-        if(nBuffered < windowSize)
-            scheduleAt(simTime() + NETWORK_READY_INTERVAL, new cMessage("network"));
+    }
+    if(nBuffered < windowSize){
+        double interval = exponential(1 / par("lambda").doubleValue());
+        //EV << ". Scheduled a new packet after " << interval << "s";
+        scheduleAt(simTime() + interval, new cMessage("network"));
+        //scheduleAt(simTime() + NETWORK_READY_INTERVAL, new cMessage("network"));
     }
     EV<<"---------------------------------"<<endl;
     EV<<"Node: "<< getIndex() <<","<<endl;
@@ -166,12 +187,14 @@ void Node::handleMessage(cMessage *msg)
     EV<<"---------------------------------"<<endl;
 }
 
-MyMessage_Base* Node::makeMessage(std::string s){
+MyMessage_Base* Node::makeMessage(std::string s, bool isLastMessage){
     MyMessage_Base *msg = new MyMessage_Base(s.c_str());
     msg->setSeqNum(nextFrameToSend);
     msg->setAck((framExpected+windowSize)%(windowSize+1));
     msg->setMPayload(s.c_str());
     msg->setMType(0);
+    if (isLastMessage)
+        msg->setMType(1);
     msg->setCheckBits(std::bitset<8>(parityBits(s.c_str())));
     if (timers[nextFrameToSend] != nullptr){
         cancelAndDelete(timers[nextFrameToSend]);
@@ -222,3 +245,46 @@ bool Node::modification(std::string &mypayload, bool Pmodify){
     }
     return false;
 }
+
+void Node::readMessagesFile(){
+    std::ifstream myReadFile(std::to_string(getIndex())+".txt");
+    std::string msg;
+    while (getline (myReadFile, msg)) {
+        messages.push_back(msg);
+    }
+    myReadFile.close();
+}
+
+void Node::clearTimeoutEvents(){
+    for (auto & t : timers){
+        if (timers[t.first] != nullptr){
+            cancelAndDelete(timers[t.first]);
+            timers[t.first] = nullptr;
+        }
+    }
+    return;
+}
+
+void Node::gatherStatistics(){
+/*  implementation for one statistic gathering function that
+    calculates and prints the following for all the system nodes during a
+
+    // schedule at (simTime() + 3 minutes)
+    simulation run of the period (3 minutes):
+    // Number of generated frames (would be same as text size of all sent messages size)
+    • The total number of generated frames.
+    // Number of dropped frames would be
+    • The total number of dropped frames.
+    // Number of retransmission (time out sent frames)
+    • The total number of retransmitted frames.
+*/
+
+}
+/*
+ *
+ *    double interval = exponential(1 / par("lambda").doubleValue());
+      EV << ". Scheduled a new packet after " << interval << "s";
+      scheduleAt(simTime() + interval, new cMessage(""));
+ *
+ *
+ */

@@ -42,13 +42,18 @@ class Node : public cSimpleModule
     int framExpected;           // a.k.a. "R" next frame expected on in-bound stream
     std::vector<std::string> buffer; // buffer array o messages
     int nBuffered;              // number of buffered packets/frames
+    int fileIterator;
+    bool terminate;
+    // Statistics variables
+    int retransmittedCount;
+    std::vector<std::string> messages; // read all message from the file and hold inside
     std::unordered_map<int, cMessage*> timers;
     virtual void initialize();
     virtual void handleMessage(cMessage *msg);
     void organize();
     void findMyPeer();
     std::string randString();
-    MyMessage_Base * makeMessage(std::string );
+    MyMessage_Base* makeMessage(std::string s, bool isLastMessage);
     std::vector<std::string> split (const std::string &s);
     std::string join(std::vector<std::string> vec);
     bool between(int a,int b,int c);
@@ -57,8 +62,10 @@ class Node : public cSimpleModule
     bool checkError(const char * string,const bits& checkBits);
     bool modification(std::string &mypayload, bool Pmodify);
     void sendData(MyMessage_Base *msg, int dest, bool Pdelay);
+    void readMessagesFile();
+    void clearTimeoutEvents();
+    void gatherStatistics();
 };
-
 
 
 #endif

@@ -129,7 +129,9 @@ void Node::handleMessage(cMessage *msg)
             // TODO add framing here and rest of functionality,
             // make it as a wrapper function like modification.
             // Options, randString(); // std::to_string(nextFrameToSend);
+            // std::string s = randString(); //std::to_string(nextFrameToSend);
             std::string s = messages[fileIterator];
+            s = byteStuffing(s);
             modification(s, false);
             nBuffered++;
             fileIterator++;
@@ -217,16 +219,33 @@ bool Node::between(int a,int b,int c){
 }
 
 void Node::sendData(MyMessage_Base *msg, int dest, bool Pdelay){
+    //first check whether to send or not  (loss)
+
+    double rand =  uniform(0, 1) * 10;
+    if(rand< par("lossRand").doubleValue())
+        return; //don't send anything
+
+    //(duplicate)
+
+    bool dup = false;
+    rand = uniform(0, 1) * 10;
+    if(rand<par("duplicateRand").doubleValue())
+        dup = true;
+
     // P(delay): [boolean] probability of delaying exist
     int delayRand = uniform(0, 1) * 10;
     if (delayRand >= par("delayRand").doubleValue() && Pdelay)
     {
         EV << "delaying message with 1 second " << endl;
         sendDelayed(msg, 1, "outs", dest);
+        if(dup)
+            sendDelayed(msg, 1, "outs", dest);
     }
     else
     {
         send(msg, "outs", dest);
+        if(dup)
+            send(msg, "outs", dest);
     }
 }
 
@@ -272,11 +291,11 @@ void Node::gatherStatistics(){
     // schedule at (simTime() + 3 minutes)
     simulation run of the period (3 minutes):
     // Number of generated frames (would be same as text size of all sent messages size)
-    • The total number of generated frames.
+    ï¿½ The total number of generated frames.
     // Number of dropped frames would be
-    • The total number of dropped frames.
+    ï¿½ The total number of dropped frames.
     // Number of retransmission (time out sent frames)
-    • The total number of retransmitted frames.
+    ï¿½ The total number of retransmitted frames.
 */
 
 }
@@ -288,3 +307,32 @@ void Node::gatherStatistics(){
  *
  *
  */
+std::string Node::byteStuffing(std::string s)
+{
+    std::string result = "";
+    char flag = 'f';
+    char escape = 'e';
+
+    for(int i=0;i<s.length();i++)
+    {
+        if(s[i]==flag||s[i]==escape)
+            result+=escape;
+        result+=s[i];
+    }
+}
+
+std::string Node::byteDestuffing(std::string s)
+{
+    std::string result = "";
+    char escape = 'e';
+
+    for(int i=0;i+1<s.length();i++)
+    {
+        if(s[i]==escape)
+            i++;
+        result+=s[i];
+    }
+}
+
+
+

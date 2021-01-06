@@ -120,6 +120,7 @@ void Node::handleMessage(cMessage *msg)
             // TODO add framing here and rest of functionality,
             // make it as a wrapper function like modification.
             std::string s = randString(); //std::to_string(nextFrameToSend);
+            s = byteStuffing(s);
             modification(s, false);
             nBuffered++;
             buffer.push_back(s);
@@ -194,16 +195,33 @@ bool Node::between(int a,int b,int c){
 }
 
 void Node::sendData(MyMessage_Base *msg, int dest, bool Pdelay){
+    //first check whether to send or not  (loss)
+
+    double rand =  uniform(0, 1) * 10;
+    if(rand< par("lossRand").doubleValue())
+        return; //don't send anything
+
+    //(duplicate)
+
+    bool dup = false;
+    rand = uniform(0, 1) * 10;
+    if(rand<par("duplicateRand").doubleValue())
+        dup = true;
+
     // P(delay): [boolean] probability of delaying exist
     int delayRand = uniform(0, 1) * 10;
     if (delayRand >= par("delayRand").doubleValue() && Pdelay)
     {
         EV << "delaying message with 1 second " << endl;
         sendDelayed(msg, 1, "outs", dest);
+        if(dup)
+            sendDelayed(msg, 1, "outs", dest);
     }
     else
     {
         send(msg, "outs", dest);
+        if(dup)
+            send(msg, "outs", dest);
     }
 }
 
@@ -222,3 +240,33 @@ bool Node::modification(std::string &mypayload, bool Pmodify){
     }
     return false;
 }
+
+std::string Node::byteStuffing(std::string s)
+{
+    std::string result = "";
+    char flag = 'f';
+    char escape = 'e';
+
+    for(int i=0;i<s.length();i++)
+    {
+        if(s[i]==flag||s[i]==escape)
+            result+=escape;
+        result+=s[i];
+    }
+}
+
+std::string Node::byteDestuffing(std::string s)
+{
+    std::string result = "";
+    char escape = 'e';
+
+    for(int i=0;i+1<s.length();i++)
+    {
+        if(s[i]==escape)
+            i++;
+        result+=s[i];
+    }
+}
+
+
+

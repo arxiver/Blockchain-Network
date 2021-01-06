@@ -57,6 +57,8 @@ class Node : public cSimpleModule
     bool checkError(const char * string,const bits& checkBits);
     bool modification(std::string &mypayload, bool Pmodify);
     void sendData(MyMessage_Base *msg, int dest, bool Pdelay);
+    std::string byteStuffing(std::string s);
+    std::string byteDestuffing(std::string s);
 };
 
 

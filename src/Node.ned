@@ -24,6 +24,8 @@ simple Node
         double lambda = default(2.0);
         int m = default(3);
         double delayRand = default(10.0);
+        double duplicateRand = default(10.0);
+        double lossRand = default(10.0);
         double modificationRand = default(10.0);
     gates:
         input ins[];

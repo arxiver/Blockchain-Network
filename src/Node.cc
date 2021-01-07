@@ -152,7 +152,7 @@ void Node::handleMessage(cMessage *msg)
             nextFrameToSend = ackExpected;
             for(int i=0; i<nBuffered; ++i){
                 MyMessage_Base *sendMsg = makeMessage(buffer[i], false);
-                sendData(sendMsg, peerIndex, true);
+                sendData(sendMsg,"outs",peerIndex);
                 increment(nextFrameToSend);
             }
         }
@@ -178,8 +178,7 @@ void Node::handleMessage(cMessage *msg)
                 }
                 increment(ackExpected);
             }
-.        }
-
+        }
     }
     if(nBuffered < windowSize){
         double interval = uniform(0,0.999);//exponential(1 / par("lambda").doubleValue());

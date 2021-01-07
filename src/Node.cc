@@ -152,7 +152,7 @@ void Node::handleMessage(cMessage *msg)
             nextFrameToSend = ackExpected;
             for(int i=0; i<nBuffered; ++i){
                 MyMessage_Base *sendMsg = makeMessage(buffer[i], false);
-                sendData(sendMsg,"outs",peerIndex);
+                sendData(sendMsg, peerIndex, true);
                 increment(nextFrameToSend);
             }
         }

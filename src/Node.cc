@@ -104,7 +104,14 @@ void Node::initialize()
     EV<<getIndex()<<", "<<peerIndex<<endl;
     peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
     if (peerIndex == -1) return;
-    double interval = InitConnection? 0.5 : 1;
+
+     //EV << ". Scheduled a new packet after " << interval << "s";
+     //scheduleAt(simTime() + interval, new cMessage(""));
+    //double interval1 = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
+    double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
+    //double interval = InitConnection? 0.5 : 1;
+    //EV <<getIndex()<<" "<<simTime() <<endl;
+    //time
     scheduleAt(simTime() + interval, new cMessage("network"));
     windowSize = (1 << (int)par("m")) - 1;
     nextFrameToSend = 0;
@@ -118,8 +125,8 @@ void Node::initialize()
 
 void Node::handleMessage(cMessage *msg)
 {
+
     if(terminate) {
-    // remove all time out events inside this node
         clearTimeoutEvents();
         return;
     }
@@ -136,18 +143,16 @@ void Node::handleMessage(cMessage *msg)
             nBuffered++;
             fileIterator++;
             buffer.push_back(s);
-            bool isLastMessage = fileIterator == (messages.size()-1);
-            if (isLastMessage)
-                terminate = true;
-            MyMessage_Base *sendMsg = makeMessage(s, isLastMessage);
-            sendData(sendMsg, peerIndex, false);
+            terminate = fileIterator == (messages.size()-1);
+            MyMessage_Base *sendMsg = makeMessage(s, terminate);
+            sendData(sendMsg, peerIndex, true);
             increment(nextFrameToSend);
         }
         else if(!(strcmp(msg->getName(), "timeout"))){
             nextFrameToSend = ackExpected;
             for(int i=0; i<nBuffered; ++i){
                 MyMessage_Base *sendMsg = makeMessage(buffer[i], false);
-                send(sendMsg,"outs",peerIndex);
+                sendData(sendMsg, peerIndex, true);
                 increment(nextFrameToSend);
             }
         }
@@ -156,12 +161,13 @@ void Node::handleMessage(cMessage *msg)
         MyMessage_Base *receivedMsg = check_and_cast<MyMessage_Base *>(msg);
         // if there is no error acknowledge it else discard it
         // checkError i.e. (if it error free)
-        if (receivedMsg->getMType()){
+        if (receivedMsg->getMType() == 1){
             terminate = true;
         }
         bool isErrorFree = checkError(receivedMsg->getMPayload(), receivedMsg->getCheckBits());
         if (isErrorFree && framExpected == receivedMsg->getSeqNum()){
             //EV<<"Received correctly"<<endl;
+            byteDestuffing(receivedMsg->getMPayload());
             increment(framExpected);
             while(between(ackExpected,receivedMsg->getAck(),nextFrameToSend)){
                 nBuffered--;
@@ -172,11 +178,12 @@ void Node::handleMessage(cMessage *msg)
                 }
                 increment(ackExpected);
             }
-        }
+.        }
+
     }
     if(nBuffered < windowSize){
-        double interval = exponential(1 / par("lambda").doubleValue());
-        //EV << ". Scheduled a new packet after " << interval << "s";
+        double interval = uniform(0,0.999);//exponential(1 / par("lambda").doubleValue());
+        EV << ". Scheduled a new packet after " << interval << "s";
         scheduleAt(simTime() + interval, new cMessage("network"));
         //scheduleAt(simTime() + NETWORK_READY_INTERVAL, new cMessage("network"));
     }
@@ -222,30 +229,31 @@ void Node::sendData(MyMessage_Base *msg, int dest, bool Pdelay){
     //first check whether to send or not  (loss)
 
     double rand =  uniform(0, 1) * 10;
-    if(rand< par("lossRand").doubleValue())
+    if(rand< par("lossRand").doubleValue()){
+        EV << "Message lost OMG " << endl;
         return; //don't send anything
-
+    }
     //(duplicate)
-
     bool dup = false;
     rand = uniform(0, 1) * 10;
-    if(rand<par("duplicateRand").doubleValue())
+    if(rand<par("duplicateRand").doubleValue()){
+        EV << "Duplicate happened " << endl;
         dup = true;
-
+    }
     // P(delay): [boolean] probability of delaying exist
     int delayRand = uniform(0, 1) * 10;
     if (delayRand >= par("delayRand").doubleValue() && Pdelay)
     {
-        EV << "delaying message with 1 second " << endl;
-        sendDelayed(msg, 1, "outs", dest);
+        EV << "delaying message with "<< TIMEOUT_INTERVAL + 0.1 << " seconds " << endl;
+        sendDelayed(msg, TIMEOUT_INTERVAL + 0.1, "outs", dest);
         if(dup)
-            sendDelayed(msg, 1, "outs", dest);
+            sendDelayed(msg->dup(), TIMEOUT_INTERVAL + 0.1 , "outs", dest);
     }
     else
     {
         send(msg, "outs", dest);
         if(dup)
-            send(msg, "outs", dest);
+          send(msg->dup(), "outs", dest);
     }
 }
 
@@ -284,29 +292,6 @@ void Node::clearTimeoutEvents(){
     return;
 }
 
-void Node::gatherStatistics(){
-/*  implementation for one statistic gathering function that
-    calculates and prints the following for all the system nodes during a
-
-    // schedule at (simTime() + 3 minutes)
-    simulation run of the period (3 minutes):
-    // Number of generated frames (would be same as text size of all sent messages size)
-    � The total number of generated frames.
-    // Number of dropped frames would be
-    � The total number of dropped frames.
-    // Number of retransmission (time out sent frames)
-    � The total number of retransmitted frames.
-*/
-
-}
-/*
- *
- *    double interval = exponential(1 / par("lambda").doubleValue());
-      EV << ". Scheduled a new packet after " << interval << "s";
-      scheduleAt(simTime() + interval, new cMessage(""));
- *
- *
- */
 std::string Node::byteStuffing(std::string s)
 {
     std::string result = "";
@@ -319,6 +304,7 @@ std::string Node::byteStuffing(std::string s)
             result+=escape;
         result+=s[i];
     }
+    return result;
 }
 
 std::string Node::byteDestuffing(std::string s)
@@ -332,7 +318,35 @@ std::string Node::byteDestuffing(std::string s)
             i++;
         result+=s[i];
     }
+    return result;
 }
 
+void Node::writeStatistics(){
+
+}
+
+void Node::gatherStatistics(){
+/*  implementation for one statistic gathering function that
+    calculates and prints the following for all the system nodes during a
+
+    // schedule at (simTime() + 3 minutes)
+    simulation run of the period (3 minutes):
+    // Number of generated frames (would be same as text size of all sent messages size)
+    � The total number of generated frames.
+    // Number of dropped frames would be
+    � The total number of dropped frames.
+    // Number of retransmission (time out sent frames)
+    � The total number of retransmitted frames.
+*/
+}
+
+/*
+ *
+ *    double interval = exponential(1 / par("lambda").doubleValue());
+      EV << ". Scheduled a new packet after " << interval << "s";
+      scheduleAt(simTime() + interval, new cMessage(""));
+ *
+ *
+ */
 
 

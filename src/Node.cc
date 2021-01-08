@@ -273,7 +273,7 @@ bool Node::modification(std::string &mypayload, bool modifiable){
         int randBit = uniform(0, 7); // random bit in a char
         unsigned char oneBitRandom = std::pow(2, randBit);
         int randByte = uniform(0, mypayload.length()); // random char
-
+        droppedCount++;
         mypayload[randByte] = (unsigned char)mypayload[randByte] ^ oneBitRandom;
         EV << "modifying message, modified bit = " << std::to_string(randBit) << ", modified char = " << std::to_string(randByte) << endl;
         return true;

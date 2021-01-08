@@ -19,9 +19,9 @@
 #define NETWORK_READY_INTERVAL 0.6
 #define TIMEOUT_INTERVAL 0.7
 #define MODIFIABLE true
-#define DELAYABLE true
-#define LOSSABLE true
-#define DUPLICTABLE true
+#define DELAYABLE false
+#define LOSSABLE false
+#define DUPLICTABLE false
 
 #include <omnetpp.h>
 #include <vector>

@@ -9,6 +9,10 @@ network Blockchain
 {
     parameters:
         int n = default(5);
+        int retransmittedCount =default(0);
+        int droppedCount = default(0);
+        int generatedCount = default(0);
+        int usefulSentCount = default(0);
         string peers = default("");
     submodules:
         nodes[n]: Node ;

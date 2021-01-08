@@ -99,6 +99,7 @@ void Node::initialize()
 {
     if (getIndex()==0){
         organize();
+        scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
     }
     findMyPeer();
     EV<<getIndex()<<", "<<peerIndex<<endl;
@@ -132,6 +133,11 @@ void Node::handleMessage(cMessage *msg)
         printStatistics();
         return ;
     }
+    if (msg->isSelfMessage() && !(strcmp(msg->getName(),"statsGeneral")))
+        {
+            printStatisticsGeneral();
+            return ;
+        }
     if(iTerminate && fileIterator%(windowSize+1) == ackExpected) {
         EV<<fileIterator%(windowSize+1)<<" "<<ackExpected<<endl;
         clearTimeoutEvents();
@@ -146,6 +152,8 @@ void Node::handleMessage(cMessage *msg)
             buffer.push_back(s);
             fileIterator++;
             generatedCount++;
+            int temp = getParentModule()->par("generatedCount").intValue();
+            getParentModule()->par("generatedCount").setIntValue(temp+1);
             iTerminate = fileIterator == messages.size();
             MyMessage_Base *sendMsg = makeMessage(s, MODIFIABLE, iTerminate);
             sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
@@ -157,6 +165,8 @@ void Node::handleMessage(cMessage *msg)
             EV << getIndex() <<" timeout "<<endl;
             for(int i=0; i<buffer.size(); ++i){
                 retransmittedCount++;
+                int temp = getParentModule()->par("retransmittedCount").intValue();
+                getParentModule()->par("retransmittedCount").setIntValue(temp+1);
                 bool tempTerminate = iTerminate && i==buffer.size()-1;
                 MyMessage_Base *sendMsg = makeMessage(buffer[i], MODIFIABLE, tempTerminate);
                 sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
@@ -176,6 +186,8 @@ void Node::handleMessage(cMessage *msg)
             increment(framExpected);
             while(between(ackExpected,receivedMsg->getAck(),nextFrameToSend)){
                 usefulSentCount++;
+                int temp = getParentModule()->par("usefulSentCount").intValue();
+                getParentModule()->par("usefulSentCount").setIntValue(temp+1);
                 buffer.erase(buffer.begin(),buffer.begin()+1);
                 if (timers[ackExpected] != nullptr){
                     cancelAndDelete(timers[ackExpected]);
@@ -243,13 +255,15 @@ void Node::sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable
     if(rand< par("lossRand").doubleValue() && lossable){
             EV << "Message lost " << endl;
             droppedCount++;
+            int temp = getParentModule()->par("droppedCount").intValue();
+            getParentModule()->par("droppedCount").setIntValue(temp+1);
             return; //don't send anything
 
         rand = uniform(0, 1) * 10;
         if(rand<par("duplicateRand").doubleValue() && duplictable){
             EV << "Duplicate happened " << endl;
             dup = true;
-            retransmittedCount++;
+//            retransmittedCount++;
         }
     }
     int delayRand = uniform(0, 1) * 10;
@@ -274,6 +288,8 @@ bool Node::modification(std::string &mypayload, bool modifiable){
         unsigned char oneBitRandom = std::pow(2, randBit);
         int randByte = uniform(0, mypayload.length()); // random char
         droppedCount++;
+        int temp = getParentModule()->par("droppedCount").intValue();
+        getParentModule()->par("droppedCount").setIntValue(temp+1);
         mypayload[randByte] = (unsigned char)mypayload[randByte] ^ oneBitRandom;
         EV << "modifying message, modified bit = " << std::to_string(randBit) << ", modified char = " << std::to_string(randByte) << endl;
         return true;
@@ -348,6 +364,25 @@ void Node::printStatistics(){
     retransmittedCount = 0;
     usefulSentCount = 0;
     scheduleAt(simTime() + 3, new cMessage("stats"));
+}
+void Node::printStatisticsGeneral(){
+    // schedule at (simTime() + 3 minutes)
+    // Print
+    EV<<"-----------statistics General-----------------"<<endl;
+    EV<<"generated frames count: "<< getParentModule()->par("generatedCount").intValue()<<", "<<endl;
+    EV<<"dropped frames count: "<< getParentModule()->par("droppedCount").intValue()<<", "<<endl;
+    EV<<"useful frames count: "<< getParentModule()->par("usefulSentCount").intValue()<<", "<<endl;
+    EV<<"retransmission frames count: "<< getParentModule()->par("retransmittedCount").intValue()<<", "<<endl;
+    if (getParentModule()->par("usefulSentCount").intValue() != 0)
+        EV<<"useful data transmitted %: "<< ((1.0*getParentModule()->par("usefulSentCount").intValue())/(getParentModule()->par("usefulSentCount").intValue()+getParentModule()->par("retransmittedCount").intValue()))*100<<", "<<endl;
+    else EV<<"useful data transmitted %: "<< 0 <<", "<<endl;
+    EV<<"---------------------------------"<<endl;
+    // Reset
+    getParentModule()->par("generatedCount").setIntValue(0);
+    getParentModule()->par("droppedCount").setIntValue(0);
+    getParentModule()->par("retransmittedCount").setIntValue(0);
+    getParentModule()->par("usefulSentCount").setIntValue(0);
+    scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
 }
 
 /*

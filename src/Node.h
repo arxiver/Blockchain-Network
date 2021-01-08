@@ -75,6 +75,7 @@ class Node : public cSimpleModule
     void readMessagesFile();
     void clearTimeoutEvents();
     void printStatistics();
+    void printStatisticsGeneral();
     void printState(std::string state,std::string msg);
     std::string byteStuffing(std::string s);
     std::string byteDestuffing(std::string s);

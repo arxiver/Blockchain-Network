@@ -18,10 +18,10 @@
 
 #define NETWORK_READY_INTERVAL 0.6
 #define TIMEOUT_INTERVAL 0.7
-#define MODIFIABLE false
-#define DELAYABLE false
-#define LOSSABLE false
-#define DUPLICTABLE false
+#define MODIFIABLE true
+#define DELAYABLE true
+#define LOSSABLE true
+#define DUPLICTABLE true
 
 #include <omnetpp.h>
 #include <vector>
@@ -49,7 +49,8 @@ class Node : public cSimpleModule
     std::vector<std::string> buffer; // buffer array o messages
     int nBuffered;              // number of buffered packets/frames
     int fileIterator;
-    bool terminate;
+    bool iTerminate;
+    bool peerTerminate;
     // Statistics variables
     int retransmittedCount;
     int droppedCount;

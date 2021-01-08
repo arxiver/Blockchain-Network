@@ -108,37 +108,46 @@ void Node::initialize()
     double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
     //double interval = InitConnection? 0.5 : 1;
     scheduleAt(simTime() + interval, new cMessage("network"));
+    scheduleAt(simTime() + 3, new cMessage("stats"));
     windowSize = (1 << (int)par("m")) - 1;
     nextFrameToSend = 0;
     ackExpected = 0;
     framExpected = 0;
     nBuffered = 0;
     fileIterator = 0;
-    terminate = false;
+    iTerminate = false;
+    peerTerminate = false;
     retransmittedCount = 0;
     droppedCount = 0;
     generatedCount = 0;
+    usefulSentCount = 0;
     readMessagesFile();
 }
 
 void Node::handleMessage(cMessage *msg)
 {
 
-    /*if(terminate && fileIterator%(windowSize+1) == ackExpected) {
+    if (msg->isSelfMessage() && !(strcmp(msg->getName(),"stats")))
+    {
+        printStatistics();
+        return ;
+    }
+    if(iTerminate && fileIterator%(windowSize+1) == ackExpected) {
+        EV<<fileIterator%(windowSize+1)<<" "<<ackExpected<<endl;
         clearTimeoutEvents();
         return;
-    }*/
+    }
     if (msg->isSelfMessage())
     {
-        if(!(strcmp(msg->getName(),"network"))){
+        if(!(strcmp(msg->getName(),"network")) && buffer.size() < windowSize){
             // Options, randString(); // std::to_string(nextFrameToSend);
             std::string s = messages[fileIterator];
             s = byteStuffing(s);
             buffer.push_back(s);
             fileIterator++;
             generatedCount++;
-            terminate = fileIterator == (messages.size()-1);
-            MyMessage_Base *sendMsg = makeMessage(s, MODIFIABLE, terminate);
+            iTerminate = fileIterator == messages.size();
+            MyMessage_Base *sendMsg = makeMessage(s, MODIFIABLE, iTerminate);
             sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
             increment(nextFrameToSend);
             printState("sending",messages[fileIterator-1]);
@@ -148,7 +157,7 @@ void Node::handleMessage(cMessage *msg)
             EV << getIndex() <<" timeout "<<endl;
             for(int i=0; i<buffer.size(); ++i){
                 retransmittedCount++;
-                bool tempTerminate = terminate && i==buffer.size()-1;
+                bool tempTerminate = iTerminate && i==buffer.size()-1;
                 MyMessage_Base *sendMsg = makeMessage(buffer[i], MODIFIABLE, tempTerminate);
                 sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
                 increment(nextFrameToSend);
@@ -158,11 +167,11 @@ void Node::handleMessage(cMessage *msg)
     else {
         MyMessage_Base *receivedMsg = check_and_cast<MyMessage_Base *>(msg);
         // checkError i.e. (if it error free) if there is no error acknowledge it else discard it
-        if (receivedMsg->getMType() == 1){
-            terminate = true;
-        }
         bool isErrorFree = checkError(receivedMsg->getMPayload(), receivedMsg->getCheckBits());
         if (isErrorFree && framExpected == receivedMsg->getSeqNum()){
+            if (receivedMsg->getMType() == 1){
+                peerTerminate = true;
+            }
             std::string payload = byteDestuffing(receivedMsg->getMPayload());
             increment(framExpected);
             while(between(ackExpected,receivedMsg->getAck(),nextFrameToSend)){
@@ -184,7 +193,6 @@ void Node::handleMessage(cMessage *msg)
         double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
         //EV << ". Scheduled a new packet after " << interval << "s\n";
         scheduleAt(simTime() + interval, new cMessage("network"));
-
     }
 }
 void Node::printState(std::string state,std::string msg){
@@ -322,29 +330,24 @@ std::string Node::byteDestuffing(std::string s)
 }
 
 void Node::printStatistics(){
-/*
- * implementation for one statistic gathering function that
-    calculates and prints the following for all the system nodes during a
     // schedule at (simTime() + 3 minutes)
-    simulation run of the period (3 minutes):
-    // Number of generated frames (would be same as text size of all sent messages size)
-    - The total number of generated frames.
-    // Number of dropped frames would be
-    - The total number of dropped frames.
-    // Number of retransmission (time out sent frames)
-    - The total number of retransmitted frames.
-    Percentage of (number of useful data transmitted) / (all other types of
-    data [ Acks, Nacks, retransmission, useful data ] ) transmitted all over
-    the simulation period.
-
- * */
+    // Print
     EV<<"-----------statistics-----------------"<<endl;
     EV<<"Node: "<< getIndex() <<","<<endl;
     EV<<"generated frames count: "<< generatedCount<<", "<<endl;
     EV<<"dropped frames count: "<< droppedCount<<", "<<endl;
+    EV<<"useful frames count: "<< usefulSentCount<<", "<<endl;
     EV<<"retransmission frames count: "<< retransmittedCount<<", "<<endl;
-    EV<<"useful data transmitted %: "<< ((1.0*usefulSentCount)/(usefulSentCount+retransmittedCount))*100<<", "<<endl;
+    if (usefulSentCount != 0)
+        EV<<"useful data transmitted %: "<< ((1.0*usefulSentCount)/(usefulSentCount+retransmittedCount))*100<<", "<<endl;
+    else EV<<"useful data transmitted %: "<< 0 <<", "<<endl;
     EV<<"---------------------------------"<<endl;
+    // Reset
+    generatedCount = 0;
+    droppedCount = 0;
+    retransmittedCount = 0;
+    usefulSentCount = 0;
+    scheduleAt(simTime() + 3, new cMessage("stats"));
 }
 
 /*

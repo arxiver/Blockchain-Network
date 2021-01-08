@@ -105,13 +105,8 @@ void Node::initialize()
     peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
     if (peerIndex == -1) return;
 
-     //EV << ". Scheduled a new packet after " << interval << "s";
-     //scheduleAt(simTime() + interval, new cMessage(""));
-    //double interval1 = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
     double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
     //double interval = InitConnection? 0.5 : 1;
-    //EV <<getIndex()<<" "<<simTime() <<endl;
-    //time
     scheduleAt(simTime() + interval, new cMessage("network"));
     windowSize = (1 << (int)par("m")) - 1;
     nextFrameToSend = 0;
@@ -120,90 +115,98 @@ void Node::initialize()
     nBuffered = 0;
     fileIterator = 0;
     terminate = false;
+    retransmittedCount = 0;
+    droppedCount = 0;
+    generatedCount = 0;
     readMessagesFile();
 }
 
 void Node::handleMessage(cMessage *msg)
 {
 
-    if(terminate) {
+    /*if(terminate && fileIterator%(windowSize+1) == ackExpected) {
         clearTimeoutEvents();
         return;
-    }
+    }*/
     if (msg->isSelfMessage())
     {
         if(!(strcmp(msg->getName(),"network"))){
-            // TODO add framing here and rest of functionality,
-            // make it as a wrapper function like modification.
             // Options, randString(); // std::to_string(nextFrameToSend);
-            // std::string s = randString(); //std::to_string(nextFrameToSend);
             std::string s = messages[fileIterator];
             s = byteStuffing(s);
-            modification(s, false);
-            nBuffered++;
-            fileIterator++;
             buffer.push_back(s);
+            fileIterator++;
+            generatedCount++;
             terminate = fileIterator == (messages.size()-1);
-            MyMessage_Base *sendMsg = makeMessage(s, terminate);
-            sendData(sendMsg, peerIndex, true);
+            MyMessage_Base *sendMsg = makeMessage(s, MODIFIABLE, terminate);
+            sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
             increment(nextFrameToSend);
+            printState("sending",messages[fileIterator-1]);
         }
         else if(!(strcmp(msg->getName(), "timeout"))){
             nextFrameToSend = ackExpected;
-            for(int i=0; i<nBuffered; ++i){
-                MyMessage_Base *sendMsg = makeMessage(buffer[i], false);
-                sendData(sendMsg, peerIndex, true);
+            EV << getIndex() <<" timeout "<<endl;
+            for(int i=0; i<buffer.size(); ++i){
+                retransmittedCount++;
+                bool tempTerminate = terminate && i==buffer.size()-1;
+                MyMessage_Base *sendMsg = makeMessage(buffer[i], MODIFIABLE, tempTerminate);
+                sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
                 increment(nextFrameToSend);
             }
         }
     }
     else {
         MyMessage_Base *receivedMsg = check_and_cast<MyMessage_Base *>(msg);
-        // if there is no error acknowledge it else discard it
-        // checkError i.e. (if it error free)
+        // checkError i.e. (if it error free) if there is no error acknowledge it else discard it
         if (receivedMsg->getMType() == 1){
             terminate = true;
         }
         bool isErrorFree = checkError(receivedMsg->getMPayload(), receivedMsg->getCheckBits());
         if (isErrorFree && framExpected == receivedMsg->getSeqNum()){
-            //EV<<"Received correctly"<<endl;
-            byteDestuffing(receivedMsg->getMPayload());
+            std::string payload = byteDestuffing(receivedMsg->getMPayload());
             increment(framExpected);
             while(between(ackExpected,receivedMsg->getAck(),nextFrameToSend)){
-                nBuffered--;
+                usefulSentCount++;
                 buffer.erase(buffer.begin(),buffer.begin()+1);
                 if (timers[ackExpected] != nullptr){
                     cancelAndDelete(timers[ackExpected]);
                     timers[ackExpected] = nullptr;
                 }
+                nBuffered--;
                 increment(ackExpected);
             }
         }
+        std::string payload = byteDestuffing(receivedMsg->getMPayload());
+        printState("receiving",payload);
     }
     if(nBuffered < windowSize){
-        double interval = uniform(0,0.999);//exponential(1 / par("lambda").doubleValue());
-        EV << ". Scheduled a new packet after " << interval << "s";
+        nBuffered++;
+        double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
+        //EV << ". Scheduled a new packet after " << interval << "s\n";
         scheduleAt(simTime() + interval, new cMessage("network"));
-        //scheduleAt(simTime() + NETWORK_READY_INTERVAL, new cMessage("network"));
+
     }
-    EV<<"---------------------------------"<<endl;
-    EV<<"Node: "<< getIndex() <<","<<endl;
-    EV<<"nextFrameToSend: "<< nextFrameToSend<<","<<endl;
-    EV<<"ackExpected: "<< ackExpected<<","<<endl;
-    EV<<"framExpected: "<< framExpected<<","<<endl;
-    EV<<"nBuffered: "<< nBuffered<<","<<endl;
+}
+void Node::printState(std::string state,std::string msg){
+    EV<<"-----------"<<state<<"-----------------"<<endl;
+    EV<<"Node: "<< getIndex() <<" "<<state<<" '"<<msg<<"' ,"<<endl;
+    EV<<"S: "<< nextFrameToSend<<", ";
+    EV<<"Sf: "<< ackExpected<<", ";
+    EV<<"R: "<< framExpected<<", ";
+    EV<<"buffered: "<< buffer.size()<<","<<endl;
     EV<<"---------------------------------"<<endl;
 }
 
-MyMessage_Base* Node::makeMessage(std::string s, bool isLastMessage){
+MyMessage_Base* Node::makeMessage(std::string s, bool modifiable=false, bool isLastMessage=false){
     MyMessage_Base *msg = new MyMessage_Base(s.c_str());
     msg->setSeqNum(nextFrameToSend);
     msg->setAck((framExpected+windowSize)%(windowSize+1));
+    msg->setCheckBits(std::bitset<8>(parityBits(s.c_str())));
+    modification(s, modifiable);
     msg->setMPayload(s.c_str());
     msg->setMType(0);
     if (isLastMessage)
         msg->setMType(1);
-    msg->setCheckBits(std::bitset<8>(parityBits(s.c_str())));
     if (timers[nextFrameToSend] != nullptr){
         cancelAndDelete(timers[nextFrameToSend]);
         timers[nextFrameToSend] = nullptr;
@@ -224,42 +227,40 @@ bool Node::between(int a,int b,int c){
     return (((a<=b)&&(b<c)) || ((c<a)&&(a<=b)) || ((b<c) && (c<a)));
 }
 
-void Node::sendData(MyMessage_Base *msg, int dest, bool Pdelay){
+void Node::sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable, bool duplictable){
     //first check whether to send or not  (loss)
-
     double rand =  uniform(0, 1) * 10;
-    if(rand< par("lossRand").doubleValue()){
-        EV << "Message lost OMG " << endl;
-        return; //don't send anything
-    }
     //(duplicate)
     bool dup = false;
-    rand = uniform(0, 1) * 10;
-    if(rand<par("duplicateRand").doubleValue()){
-        EV << "Duplicate happened " << endl;
-        dup = true;
+    if(rand< par("lossRand").doubleValue() && lossable){
+            EV << "Message lost " << endl;
+            droppedCount++;
+            return; //don't send anything
+
+        rand = uniform(0, 1) * 10;
+        if(rand<par("duplicateRand").doubleValue() && duplictable){
+            EV << "Duplicate happened " << endl;
+            dup = true;
+            retransmittedCount++;
+        }
     }
-    // P(delay): [boolean] probability of delaying exist
     int delayRand = uniform(0, 1) * 10;
-    if (delayRand >= par("delayRand").doubleValue() && Pdelay)
+    if (delayRand >= par("delayRand").doubleValue() && delayable)
     {
         EV << "delaying message with "<< TIMEOUT_INTERVAL + 0.1 << " seconds " << endl;
         sendDelayed(msg, TIMEOUT_INTERVAL + 0.1, "outs", dest);
-        if(dup)
-            sendDelayed(msg->dup(), TIMEOUT_INTERVAL + 0.1 , "outs", dest);
+        if(dup) sendDelayed(msg->dup(), TIMEOUT_INTERVAL + 0.1 , "outs", dest);
     }
     else
     {
         send(msg, "outs", dest);
-        if(dup)
-          send(msg->dup(), "outs", dest);
+        if(dup) send(msg->dup(), "outs", dest);
     }
 }
 
-bool Node::modification(std::string &mypayload, bool Pmodify){
-    // P(modify): [boolean] probability of modification exist
+bool Node::modification(std::string &mypayload, bool modifiable){
     int modificationRand = uniform(0, 1) * 10;
-    if (modificationRand >= par("modificationRand").doubleValue() && Pmodify)
+    if (modificationRand >= par("modificationRand").doubleValue() && modifiable)
     {
         int randBit = uniform(0, 7); // random bit in a char
         unsigned char oneBitRandom = std::pow(2, randBit);
@@ -320,23 +321,30 @@ std::string Node::byteDestuffing(std::string s)
     return result;
 }
 
-void Node::writeStatistics(){
-
-}
-
-void Node::gatherStatistics(){
-/*  implementation for one statistic gathering function that
+void Node::printStatistics(){
+/*
+ * implementation for one statistic gathering function that
     calculates and prints the following for all the system nodes during a
-
     // schedule at (simTime() + 3 minutes)
     simulation run of the period (3 minutes):
     // Number of generated frames (would be same as text size of all sent messages size)
-    � The total number of generated frames.
+    - The total number of generated frames.
     // Number of dropped frames would be
-    � The total number of dropped frames.
+    - The total number of dropped frames.
     // Number of retransmission (time out sent frames)
-    � The total number of retransmitted frames.
-*/
+    - The total number of retransmitted frames.
+    Percentage of (number of useful data transmitted) / (all other types of
+    data [ Acks, Nacks, retransmission, useful data ] ) transmitted all over
+    the simulation period.
+
+ * */
+    EV<<"-----------statistics-----------------"<<endl;
+    EV<<"Node: "<< getIndex() <<","<<endl;
+    EV<<"generated frames count: "<< generatedCount<<", "<<endl;
+    EV<<"dropped frames count: "<< droppedCount<<", "<<endl;
+    EV<<"retransmission frames count: "<< retransmittedCount<<", "<<endl;
+    EV<<"useful data transmitted %: "<< ((1.0*usefulSentCount)/(usefulSentCount+retransmittedCount))*100<<", "<<endl;
+    EV<<"---------------------------------"<<endl;
 }
 
 /*

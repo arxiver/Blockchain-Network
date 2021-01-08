@@ -15,8 +15,14 @@
 
 #ifndef __BLOCKCHAIN_NODE_H_
 #define __BLOCKCHAIN_NODE_H_
-#define NETWORK_READY_INTERVAL 1
-#define TIMEOUT_INTERVAL 3
+
+#define NETWORK_READY_INTERVAL 0.6
+#define TIMEOUT_INTERVAL 0.7
+#define MODIFIABLE false
+#define DELAYABLE false
+#define LOSSABLE false
+#define DUPLICTABLE false
+
 #include <omnetpp.h>
 #include <vector>
 #include <algorithm>
@@ -46,6 +52,9 @@ class Node : public cSimpleModule
     bool terminate;
     // Statistics variables
     int retransmittedCount;
+    int droppedCount;
+    int generatedCount;
+    int usefulSentCount;
     std::vector<std::string> messages; // read all message from the file and hold inside
     std::unordered_map<int, cMessage*> timers;
     virtual void initialize();
@@ -53,19 +62,19 @@ class Node : public cSimpleModule
     void organize();
     void findMyPeer();
     std::string randString();
-    MyMessage_Base* makeMessage(std::string s, bool isLastMessage);
+    MyMessage_Base* makeMessage(std::string s, bool modifiable, bool isLastMessage);
     std::vector<std::string> split (const std::string &s);
     std::string join(std::vector<std::string> vec);
     bool between(int a,int b,int c);
     void increment(int & a);
     unsigned char parityBits(const char * string);
     bool checkError(const char * string,const bits& checkBits);
-    bool modification(std::string &mypayload, bool Pmodify);
-    void sendData(MyMessage_Base *msg, int dest, bool Pdelay);
+    bool modification(std::string &mypayload, bool modifiable);
+    void sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable, bool duplictable);
     void readMessagesFile();
     void clearTimeoutEvents();
-    void gatherStatistics();
-    void writeStatistics();
+    void printStatistics();
+    void printState(std::string state,std::string msg);
     std::string byteStuffing(std::string s);
     std::string byteDestuffing(std::string s);
 };

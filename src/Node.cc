@@ -139,13 +139,18 @@ void Node::handleMessage(cMessage *msg)
             return ;
         }
     if(iTerminate && fileIterator%(windowSize+1) == ackExpected) {
-        EV<<fileIterator%(windowSize+1)<<" "<<ackExpected<<endl;
-        clearTimeoutEvents();
+//        EV<<" I terminated at: "<<fileIterator%(windowSize+1)<<" "<<ackExpected<<endl;
+//        clearTimeoutEvents();
+//        MyMessage_Base *sendMsg = makeMessage("end", false, true);
+//        send(sendMsg,"outs",peerIndex);
+//        EV<< getIndex()<<" Success iTerminate: "<<iTerminate << " fileIterator: "<< fileIterator%(windowSize+1) <<" eckExpected: "<< ackExpected<<endl;
         return;
+    }else{
+//        EV<< getIndex()<< "Fail iTerminate: "<<iTerminate << " fileIterator: "<< fileIterator%(windowSize+1) <<" eckExpected: "<< ackExpected<<endl;
     }
     if (msg->isSelfMessage())
     {
-        if(!(strcmp(msg->getName(),"network")) && buffer.size() < windowSize){
+        if(!(strcmp(msg->getName(),"network")) && buffer.size() < windowSize && !iTerminate){
             // Options, randString(); // std::to_string(nextFrameToSend);
             std::string s = messages[fileIterator];
             s = byteStuffing(s);
@@ -155,7 +160,7 @@ void Node::handleMessage(cMessage *msg)
             int temp = getParentModule()->par("generatedCount").intValue();
             getParentModule()->par("generatedCount").setIntValue(temp+1);
             iTerminate = fileIterator == messages.size();
-            MyMessage_Base *sendMsg = makeMessage(s, MODIFIABLE, iTerminate);
+            MyMessage_Base *sendMsg = makeMessage(s, MODIFIABLE, false);
             sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
             increment(nextFrameToSend);
             printState("sending",messages[fileIterator-1]);
@@ -167,8 +172,8 @@ void Node::handleMessage(cMessage *msg)
                 retransmittedCount++;
                 int temp = getParentModule()->par("retransmittedCount").intValue();
                 getParentModule()->par("retransmittedCount").setIntValue(temp+1);
-                bool tempTerminate = iTerminate && i==buffer.size()-1;
-                MyMessage_Base *sendMsg = makeMessage(buffer[i], MODIFIABLE, tempTerminate);
+//                bool tempTerminate = iTerminate && i==buffer.size()-1;
+                MyMessage_Base *sendMsg = makeMessage(buffer[i], MODIFIABLE, false);
                 sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
                 increment(nextFrameToSend);
             }
@@ -179,9 +184,6 @@ void Node::handleMessage(cMessage *msg)
         // checkError i.e. (if it error free) if there is no error acknowledge it else discard it
         bool isErrorFree = checkError(receivedMsg->getMPayload(), receivedMsg->getCheckBits());
         if (isErrorFree && framExpected == receivedMsg->getSeqNum()){
-            if (receivedMsg->getMType() == 1){
-                peerTerminate = true;
-            }
             std::string payload = byteDestuffing(receivedMsg->getMPayload());
             increment(framExpected);
             while(between(ackExpected,receivedMsg->getAck(),nextFrameToSend)){
@@ -199,7 +201,23 @@ void Node::handleMessage(cMessage *msg)
         }
         std::string payload = byteDestuffing(receivedMsg->getMPayload());
         printState("receiving",payload);
+        if (receivedMsg->getMType() == 1){
+            iTerminate = true;
+            ackExpected = fileIterator%(windowSize+1);
+            int temp = getParentModule()->par("terminateCount").intValue();
+            getParentModule()->par("terminateCount").setIntValue(temp + 1);
+        }
+        else if(iTerminate && fileIterator%(windowSize+1) == ackExpected) {
+            EV<<" I terminated at: "<<fileIterator%(windowSize+1)<<" "<<ackExpected<<endl;
+            clearTimeoutEvents();
+            MyMessage_Base *sendMsg = makeMessage("end", false, true);
+            send(sendMsg,"outs",peerIndex);
+            int temp = getParentModule()->par("terminateCount").intValue();
+            getParentModule()->par("terminateCount").setIntValue(temp + 1);
+            return;
+        }
     }
+
     if(nBuffered < windowSize){
         nBuffered++;
         double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
@@ -363,7 +381,10 @@ void Node::printStatistics(){
     droppedCount = 0;
     retransmittedCount = 0;
     usefulSentCount = 0;
-    scheduleAt(simTime() + 3, new cMessage("stats"));
+    if(!iTerminate || fileIterator%(windowSize+1) != ackExpected){
+        scheduleAt(simTime() + 3, new cMessage("stats"));
+    }
+
 }
 void Node::printStatisticsGeneral(){
     // schedule at (simTime() + 3 minutes)
@@ -382,7 +403,10 @@ void Node::printStatisticsGeneral(){
     getParentModule()->par("droppedCount").setIntValue(0);
     getParentModule()->par("retransmittedCount").setIntValue(0);
     getParentModule()->par("usefulSentCount").setIntValue(0);
-    scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
+    int n = getParentModule()->par("n").intValue();
+    n = n%2 ? n-1 : n;
+    if(getParentModule()->par("terminateCount").intValue() < n)
+        scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
 }
 
 /*

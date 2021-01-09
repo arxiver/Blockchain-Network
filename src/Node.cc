@@ -56,12 +56,7 @@ std::string Node::join(std::vector<std::string> vec){
 }
 
 void Node::organize(){
-
-    //getParentModule()->par("peers").setStringValue("hello World");
-    //std::string peersStr = getParentModule()->par("peers").stringValue();
-    // std::vector<std::string> peers = split(peersStr);
     int n = getParentModule()->par("n").intValue();
-    n = n%2 ? n-1 : n;
     std::vector<int> temp;
     for (int i=0;i<n;++i){
         temp.push_back(i);
@@ -69,10 +64,25 @@ void Node::organize(){
     std::vector<std::string> vec;
     for (int i=0;i<n;++i){
         int pick = (int)(uniform(0,temp.size()) + rand() + (int)simTime().dbl()) % temp.size();
-        vec.push_back(std::to_string(temp[pick]));
-        temp.erase(temp.begin()+pick,temp.begin()+pick+1);
-        //EV<<vec[i]<<endl;
+        double Pstay = uniform(0, 1);
+        if (temp[pick] == 0 && Pstay > 0.5)
+            vec.push_back(std::to_string(temp[pick]));
+        temp.erase(temp.begin() + pick, temp.begin() + pick + 1);
     }
+    if(vec.size() == 1)
+        vec.push_back(std::to_string((int)uniform(1,n)));
+    else if(vec.size() % 2 == 1){
+        if(vec[0] != "0")
+            vec.erase(vec.begin(),vec.begin()+1);
+        else
+            vec.erase(vec.begin()+1,vec.begin()+2);
+    }
+//    EV<<"-------- vector --------"<<endl;
+//    for(int i = 0 ; i < vec.size(); i++)
+//        EV<<vec[i]<<" ";
+//    EV<<endl<<"-------- vector --------"<<endl;
+
+    getParentModule()->par("workingCount").setIntValue(vec.size());
     std::string peers = join(vec);
     getParentModule()->par("peers").setStringValue(peers);
 }
@@ -80,8 +90,7 @@ void Node::organize(){
 void Node::findMyPeer(){
     peerIndex = -1;
     InitConnection = false;
-    int n = getParentModule()->par("n").intValue();
-    n = n%2 ? n-1 : n;
+    int n = getParentModule()->par("workingCount").intValue();
     std::string peersStr = getParentModule()->par("peers").stringValue();
     std::vector<std::string> peers = split(peersStr);
     for(int i=0;i<n-1;i+=2){
@@ -100,19 +109,18 @@ void Node::initialize()
     if (getIndex()==0){
         organize();
         if(generatedCount == 0)
-            scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
+            scheduleAt(simTime() + STATS_INTERVAL, new cMessage("statsGeneral"));
     }
-    scheduleAt(simTime() + 4, new cMessage("reinitialize"));
+    scheduleAt(simTime() + REINIT_INTERVAL, new cMessage("reinitialize"));
     findMyPeer();
     EV<<getIndex()<<", "<<peerIndex<<endl;
     peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
     if (peerIndex == -1) return;
 
-    double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
-    //double interval = InitConnection? 0.5 : 1;
+    double interval = uniform(0,NETWORK_INTERVAL);
     scheduleAt(simTime() + interval, new cMessage("network"));
-    if(generatedCount == 0)
-        scheduleAt(simTime() + 3, new cMessage("stats"));
+//    if(generatedCount == 0)
+//        scheduleAt(simTime() + 3, new cMessage("stats"));
     windowSize = (1 << (int)par("m")) - 1;
     nextFrameToSend = 0;
     ackExpected = 0;
@@ -120,15 +128,6 @@ void Node::initialize()
     nBuffered = 0;
     fileIterator = 0;
     iTerminate = false;
-    peerTerminate = false;
-//    if(!reinitialize){
-//        retransmittedCount = 0;
-//        droppedCount = 0;
-//        generatedCount = 0;
-//        usefulSentCount = 0;
-//        reinitialize = true;
-//    }
-
     buffer.clear();
     this->clearTimeoutEvents();
     readMessagesFile();
@@ -136,6 +135,7 @@ void Node::initialize()
 
 void Node::handleMessage(cMessage *msg)
 {
+
     if(msg->isSelfMessage() && !(strcmp(msg->getName(), "reinitialize"))){
         EV<<"-------- Re-initialization ---------"<<endl;
         EV<<"Node: "<<getIndex() <<" reinitialize"<<endl;
@@ -153,20 +153,12 @@ void Node::handleMessage(cMessage *msg)
             printStatisticsGeneral();
             return ;
         }
-    if(iTerminate && fileIterator%(windowSize+1) == ackExpected) {
-//        EV<<" I terminated at: "<<fileIterator%(windowSize+1)<<" "<<ackExpected<<endl;
-//        clearTimeoutEvents();
-//        MyMessage_Base *sendMsg = makeMessage("end", false, true);
-//        send(sendMsg,"outs",peerIndex);
-//        EV<< getIndex()<<" Success iTerminate: "<<iTerminate << " fileIterator: "<< fileIterator%(windowSize+1) <<" eckExpected: "<< ackExpected<<endl;
+    if(iTerminate && fileIterator%(windowSize+1) == ackExpected || peerIndex == -1){
         return;
-    }else{
-//        EV<< getIndex()<< "Fail iTerminate: "<<iTerminate << " fileIterator: "<< fileIterator%(windowSize+1) <<" eckExpected: "<< ackExpected<<endl;
     }
     if (msg->isSelfMessage())
     {
         if(!(strcmp(msg->getName(),"network")) && buffer.size() < windowSize && !iTerminate){
-            // Options, randString(); // std::to_string(nextFrameToSend);
             std::string s = messages[fileIterator];
             s = byteStuffing(s);
             buffer.push_back(s);
@@ -187,7 +179,6 @@ void Node::handleMessage(cMessage *msg)
                 retransmittedCount++;
                 int temp = getParentModule()->par("retransmittedCount").intValue();
                 getParentModule()->par("retransmittedCount").setIntValue(temp+1);
-//                bool tempTerminate = iTerminate && i==buffer.size()-1;
                 MyMessage_Base *sendMsg = makeMessage(buffer[i], MODIFIABLE, false);
                 sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
                 increment(nextFrameToSend);
@@ -235,8 +226,7 @@ void Node::handleMessage(cMessage *msg)
 
     if(nBuffered < windowSize){
         nBuffered++;
-        double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
-        //EV << ". Scheduled a new packet after " << interval << "s\n";
+        double interval = uniform(0,NETWORK_INTERVAL);
         scheduleAt(simTime() + interval, new cMessage("network"));
     }
 }
@@ -296,7 +286,6 @@ void Node::sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable
         if(rand<par("duplicateRand").doubleValue() && duplictable){
             EV << "Duplicate happened " << endl;
             dup = true;
-//            retransmittedCount++;
         }
     }
     int delayRand = uniform(0, 1) * 10;
@@ -379,8 +368,6 @@ std::string Node::byteDestuffing(std::string s)
 }
 
 void Node::printStatistics(){
-    // schedule at (simTime() + 3 minutes)
-    // Print
     EV<<"-----------statistics-----------------"<<endl;
     EV<<"Node: "<< getIndex() <<","<<endl;
     EV<<"generated frames count: "<< generatedCount<<", "<<endl;
@@ -391,19 +378,12 @@ void Node::printStatistics(){
         EV<<"useful data transmitted %: "<< ((1.0*usefulSentCount)/(usefulSentCount+retransmittedCount))*100<<", "<<endl;
     else EV<<"useful data transmitted %: "<< 0 <<", "<<endl;
     EV<<"---------------------------------"<<endl;
-    // Reset
-//    generatedCount = 0;
-//    droppedCount = 0;
-//    retransmittedCount = 0;
-//    usefulSentCount = 0;
     if(!iTerminate || fileIterator%(windowSize+1) != ackExpected){
         scheduleAt(simTime() + 3, new cMessage("stats"));
     }
 
 }
 void Node::printStatisticsGeneral(){
-    // schedule at (simTime() + 3 minutes)
-    // Print
     EV<<"-----------statistics General-----------------"<<endl;
     EV<<"generated frames count: "<< getParentModule()->par("generatedCount").intValue()<<", "<<endl;
     EV<<"dropped frames count: "<< getParentModule()->par("droppedCount").intValue()<<", "<<endl;
@@ -413,24 +393,8 @@ void Node::printStatisticsGeneral(){
         EV<<"useful data transmitted %: "<< ((1.0*getParentModule()->par("usefulSentCount").intValue())/(getParentModule()->par("usefulSentCount").intValue()+getParentModule()->par("retransmittedCount").intValue()))*100<<", "<<endl;
     else EV<<"useful data transmitted %: "<< 0 <<", "<<endl;
     EV<<"---------------------------------"<<endl;
-    // Reset
-//    getParentModule()->par("generatedCount").setIntValue(0);
-//    getParentModule()->par("droppedCount").setIntValue(0);
-//    getParentModule()->par("retransmittedCount").setIntValue(0);
-//    getParentModule()->par("usefulSentCount").setIntValue(0);
-    int n = getParentModule()->par("n").intValue();
-    n = n%2 ? n-1 : n;
+    int n = getParentModule()->par("workingCount").intValue();
     if(getParentModule()->par("terminateCount").intValue() < n)
         scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
 }
-
-/*
- *
- *    double interval = exponential(1 / par("lambda").doubleValue());
-      EV << ". Scheduled a new packet after " << interval << "s";
-      scheduleAt(simTime() + interval, new cMessage(""));
- *
- *
- */
-
 

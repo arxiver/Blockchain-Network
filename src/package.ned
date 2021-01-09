@@ -14,6 +14,7 @@ network Blockchain
         int generatedCount = default(0);
         int usefulSentCount = default(0);
         int terminateCount = default(0);
+        int workingCount = default(0);
         string peers = default("");
     submodules:
         nodes[n]: Node ;

@@ -16,12 +16,14 @@
 #ifndef __BLOCKCHAIN_NODE_H_
 #define __BLOCKCHAIN_NODE_H_
 
-#define NETWORK_READY_INTERVAL 0.6
 #define TIMEOUT_INTERVAL 0.7
+#define STATS_INTERVAL 180
+#define REINIT_INTERVAL 30
+#define NETWORK_INTERVAL 0.5
 #define MODIFIABLE true
-#define DELAYABLE false
-#define LOSSABLE false
-#define DUPLICTABLE false
+#define DELAYABLE true
+#define LOSSABLE true
+#define DUPLICTABLE true
 
 #include <omnetpp.h>
 #include <vector>
@@ -32,10 +34,6 @@
 #include <fstream>
 #include "MyMessage_m.h"
 using namespace omnetpp;
-
-/**
- * TODO - Generated class
- */
 class Node : public cSimpleModule
 {
 
@@ -50,13 +48,10 @@ class Node : public cSimpleModule
     int nBuffered;              // number of buffered packets/frames
     int fileIterator;
     bool iTerminate;
-    bool peerTerminate;
-    // Statistics variables
     int retransmittedCount = 0;
     int droppedCount = 0;
     int generatedCount = 0;
     int usefulSentCount = 0;
-    bool reinitialize = false;
     std::vector<std::string> messages; // read all message from the file and hold inside
     std::unordered_map<int, cMessage*> timers;
     virtual void initialize();

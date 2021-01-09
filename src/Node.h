@@ -52,10 +52,11 @@ class Node : public cSimpleModule
     bool iTerminate;
     bool peerTerminate;
     // Statistics variables
-    int retransmittedCount;
-    int droppedCount;
-    int generatedCount;
-    int usefulSentCount;
+    int retransmittedCount = 0;
+    int droppedCount = 0;
+    int generatedCount = 0;
+    int usefulSentCount = 0;
+    bool reinitialize = false;
     std::vector<std::string> messages; // read all message from the file and hold inside
     std::unordered_map<int, cMessage*> timers;
     virtual void initialize();

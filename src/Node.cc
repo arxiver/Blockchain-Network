@@ -68,7 +68,7 @@ void Node::organize(){
     }
     std::vector<std::string> vec;
     for (int i=0;i<n;++i){
-        int pick = (int)(uniform(0,temp.size()) + rand()) % temp.size();
+        int pick = (int)(uniform(0,temp.size()) + rand() + (int)simTime().dbl()) % temp.size();
         vec.push_back(std::to_string(temp[pick]));
         temp.erase(temp.begin()+pick,temp.begin()+pick+1);
         //EV<<vec[i]<<endl;
@@ -99,8 +99,10 @@ void Node::initialize()
 {
     if (getIndex()==0){
         organize();
-        scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
+        if(generatedCount == 0)
+            scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
     }
+    scheduleAt(simTime() + 4, new cMessage("reinitialize"));
     findMyPeer();
     EV<<getIndex()<<", "<<peerIndex<<endl;
     peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
@@ -109,7 +111,8 @@ void Node::initialize()
     double interval = uniform(0,0.999); //exponential(1 / par("lambda").doubleValue());
     //double interval = InitConnection? 0.5 : 1;
     scheduleAt(simTime() + interval, new cMessage("network"));
-    scheduleAt(simTime() + 3, new cMessage("stats"));
+    if(generatedCount == 0)
+        scheduleAt(simTime() + 3, new cMessage("stats"));
     windowSize = (1 << (int)par("m")) - 1;
     nextFrameToSend = 0;
     ackExpected = 0;
@@ -118,15 +121,27 @@ void Node::initialize()
     fileIterator = 0;
     iTerminate = false;
     peerTerminate = false;
-    retransmittedCount = 0;
-    droppedCount = 0;
-    generatedCount = 0;
-    usefulSentCount = 0;
+//    if(!reinitialize){
+//        retransmittedCount = 0;
+//        droppedCount = 0;
+//        generatedCount = 0;
+//        usefulSentCount = 0;
+//        reinitialize = true;
+//    }
+
+    buffer.clear();
+    this->clearTimeoutEvents();
     readMessagesFile();
 }
 
 void Node::handleMessage(cMessage *msg)
 {
+    if(msg->isSelfMessage() && !(strcmp(msg->getName(), "reinitialize"))){
+        EV<<"-------- Re-initialization ---------"<<endl;
+        EV<<"Node: "<<getIndex() <<" reinitialize"<<endl;
+        EV<<"------------------------------------"<<endl;
+        this->initialize();
+    }
 
     if (msg->isSelfMessage() && !(strcmp(msg->getName(),"stats")))
     {
@@ -377,10 +392,10 @@ void Node::printStatistics(){
     else EV<<"useful data transmitted %: "<< 0 <<", "<<endl;
     EV<<"---------------------------------"<<endl;
     // Reset
-    generatedCount = 0;
-    droppedCount = 0;
-    retransmittedCount = 0;
-    usefulSentCount = 0;
+//    generatedCount = 0;
+//    droppedCount = 0;
+//    retransmittedCount = 0;
+//    usefulSentCount = 0;
     if(!iTerminate || fileIterator%(windowSize+1) != ackExpected){
         scheduleAt(simTime() + 3, new cMessage("stats"));
     }
@@ -399,10 +414,10 @@ void Node::printStatisticsGeneral(){
     else EV<<"useful data transmitted %: "<< 0 <<", "<<endl;
     EV<<"---------------------------------"<<endl;
     // Reset
-    getParentModule()->par("generatedCount").setIntValue(0);
-    getParentModule()->par("droppedCount").setIntValue(0);
-    getParentModule()->par("retransmittedCount").setIntValue(0);
-    getParentModule()->par("usefulSentCount").setIntValue(0);
+//    getParentModule()->par("generatedCount").setIntValue(0);
+//    getParentModule()->par("droppedCount").setIntValue(0);
+//    getParentModule()->par("retransmittedCount").setIntValue(0);
+//    getParentModule()->par("usefulSentCount").setIntValue(0);
     int n = getParentModule()->par("n").intValue();
     n = n%2 ? n-1 : n;
     if(getParentModule()->par("terminateCount").intValue() < n)

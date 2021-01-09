@@ -289,7 +289,7 @@ void Node::sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable
         }
     }
     int delayRand = uniform(0, 1) * 10;
-    if (delayRand >= par("delayRand").doubleValue() && delayable)
+    if (delayRand < par("delayRand").doubleValue() && delayable)
     {
         EV << "delaying message with "<< TIMEOUT_INTERVAL + 0.1 << " seconds " << endl;
         sendDelayed(msg, TIMEOUT_INTERVAL + 0.1, "outs", dest);
@@ -304,14 +304,18 @@ void Node::sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable
 
 bool Node::modification(std::string &mypayload, bool modifiable){
     int modificationRand = uniform(0, 1) * 10;
-    if (modificationRand >= par("modificationRand").doubleValue() && modifiable)
+    if (modificationRand < par("modificationRand").doubleValue() && modifiable)
     {
+		
+		droppedCount++;
+        int temp = getParentModule()->par("droppedCount").intValue();
+        getParentModule()->par("droppedCount").setIntValue(temp+1);
+		
+			
+		
         int randBit = uniform(0, 7); // random bit in a char
         unsigned char oneBitRandom = std::pow(2, randBit);
         int randByte = uniform(0, mypayload.length()); // random char
-        droppedCount++;
-        int temp = getParentModule()->par("droppedCount").intValue();
-        getParentModule()->par("droppedCount").setIntValue(temp+1);
         mypayload[randByte] = (unsigned char)mypayload[randByte] ^ oneBitRandom;
         EV << "modifying message, modified bit = " << std::to_string(randBit) << ", modified char = " << std::to_string(randByte) << endl;
         return true;

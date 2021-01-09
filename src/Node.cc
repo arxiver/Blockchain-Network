@@ -65,7 +65,7 @@ void Node::organize(){
     for (int i=0;i<n;++i){
         int pick = (int)(uniform(0,temp.size()) + rand() + (int)simTime().dbl()) % temp.size();
         double Pstay = uniform(0, 1);
-        if (temp[pick] == 0 && Pstay > 0.5)
+        if (temp[pick] == 0 || Pstay > 0.5)
             vec.push_back(std::to_string(temp[pick]));
         temp.erase(temp.begin() + pick, temp.begin() + pick + 1);
     }
@@ -77,11 +77,6 @@ void Node::organize(){
         else
             vec.erase(vec.begin()+1,vec.begin()+2);
     }
-//    EV<<"-------- vector --------"<<endl;
-//    for(int i = 0 ; i < vec.size(); i++)
-//        EV<<vec[i]<<" ";
-//    EV<<endl<<"-------- vector --------"<<endl;
-
     getParentModule()->par("workingCount").setIntValue(vec.size());
     std::string peers = join(vec);
     getParentModule()->par("peers").setStringValue(peers);
@@ -153,7 +148,7 @@ void Node::handleMessage(cMessage *msg)
             printStatisticsGeneral();
             return ;
         }
-    if(iTerminate && fileIterator%(windowSize+1) == ackExpected || peerIndex == -1){
+    if((iTerminate && fileIterator%(windowSize+1) == ackExpected) || peerIndex == -1){
         return;
     }
     if (msg->isSelfMessage())
@@ -388,7 +383,7 @@ void Node::printStatistics(){
 
 }
 void Node::printStatisticsGeneral(){
-    EV<<"-----------statistics General-----------------"<<endl;
+    EV<<"-----------statistics all nodes-----------------"<<endl;
     EV<<"generated frames count: "<< getParentModule()->par("generatedCount").intValue()<<", "<<endl;
     EV<<"dropped frames count: "<< getParentModule()->par("droppedCount").intValue()<<", "<<endl;
     EV<<"useful frames count: "<< getParentModule()->par("usefulSentCount").intValue()<<", "<<endl;

@@ -20,10 +20,10 @@
 #define STATS_INTERVAL 180
 #define REINIT_INTERVAL 30
 #define NETWORK_INTERVAL 0.5
-#define MODIFIABLE true
-#define DELAYABLE true
-#define LOSSABLE true
-#define DUPLICTABLE true
+#define MODIFIABLE false
+#define DELAYABLE false
+#define LOSSABLE false
+#define DUPLICTABLE false
 
 #include <omnetpp.h>
 #include <vector>

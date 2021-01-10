@@ -1,12 +1,12 @@
 #
-# OMNeT++/OMNEST Makefile for Blockchain-Network
+# OMNeT++/OMNEST Makefile for Blockchain
 #
 # This file was generated with the command:
 #  opp_makemake -f --deep
 #
 
 # Name of target to be created (-o option)
-TARGET = Blockchain-Network$(D)$(EXE_SUFFIX)
+TARGET = Blockchain$(D)$(EXE_SUFFIX)
 TARGET_DIR = .
 
 # User interface (uncomment one) (-u option)

@@ -1,6 +1,6 @@
 # Blockchain-Network
 
-[![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
+[![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://github.com/rrrokhtar/Blockchain-Network/)
 
 Blockchain-Network is an <b> omnet++ </b> project emulates the data link layer at OSI model layers.  
 

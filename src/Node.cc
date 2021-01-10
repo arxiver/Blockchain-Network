@@ -84,14 +84,12 @@ void Node::organize(){
 
 void Node::findMyPeer(){
     peerIndex = -1;
-    InitConnection = false;
     int n = getParentModule()->par("workingCount").intValue();
     std::string peersStr = getParentModule()->par("peers").stringValue();
     std::vector<std::string> peers = split(peersStr);
     for(int i=0;i<n-1;i+=2){
         if(peers[i] == std::to_string(getIndex())){
             peerIndex = std::atoi(peers[i+1].c_str());
-            InitConnection = true;
         }
         else if(peers[i+1] == std::to_string(getIndex())){
             peerIndex = std::atoi(peers[i].c_str());
@@ -301,13 +299,9 @@ bool Node::modification(std::string &mypayload, bool modifiable){
     int modificationRand = uniform(0, 1) * 10;
     if (modificationRand < par("modificationRand").doubleValue() && modifiable)
     {
-		
 		droppedCount++;
         int temp = getParentModule()->par("droppedCount").intValue();
         getParentModule()->par("droppedCount").setIntValue(temp+1);
-		
-			
-		
         int randBit = uniform(0, 7); // random bit in a char
         unsigned char oneBitRandom = std::pow(2, randBit);
         int randByte = uniform(0, mypayload.length()); // random char

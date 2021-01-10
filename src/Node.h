@@ -40,7 +40,6 @@ class Node : public cSimpleModule
   protected:
     int windowSize;             // a.k.a. MAX_SEQ (2^m - 1)
     int peerIndex;              // Index of the peer of this node.
-    bool InitConnection;        // Does this node has peer and would it start connection
     int nextFrameToSend;        // a.k.a. "S" out-bound stream, next frame outgoing
     int ackExpected;            // a.k.a. "SF" oldest frame unacknowledged
     int framExpected;           // a.k.a. "R" next frame expected on in-bound stream

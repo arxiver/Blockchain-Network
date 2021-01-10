@@ -1,6 +1,6 @@
-1/6.Hello iam node 5
+1/6.Hello iam node 4
 2/6.Speech is human vocal
 3/6.communication using language.
 4/6.Each language uses phonetic
 5/6.combinations of vowel 
-6.end node 5
+6.end node 4

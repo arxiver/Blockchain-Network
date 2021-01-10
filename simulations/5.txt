@@ -1,4 +1,4 @@
-1/9.Hello iam node 6
+1/9.Hello iam node 5
 2/9.Color or colour
 3/9.the visual perceptual property
 4/9.corresponding in humans
@@ -6,4 +6,4 @@
 6/9.called red,
 7/9.yellow,
 8/9.blue, etc.
-9/9.end node 6
+9/9.end node 5

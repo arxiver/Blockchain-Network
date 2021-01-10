@@ -276,8 +276,7 @@ bool Node::between(int a,int b,int c){
 void Node::sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable, bool duplictable){
     //first check whether to send or not  (loss)
     double rand =  uniform(0, 1) * 10;
-    //(duplicate)
-    bool dup = false;
+
     if(rand< par("lossRand").doubleValue() && lossable){
             EV << "Message lost " << endl;
             droppedCount++;
@@ -285,12 +284,16 @@ void Node::sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable
             getParentModule()->par("droppedCount").setIntValue(temp+1);
             return; //don't send anything
 
-        rand = uniform(0, 1) * 10;
-        if(rand<par("duplicateRand").doubleValue() && duplictable){
-            EV << "Duplicate happened " << endl;
-            dup = true;
-        }
     }
+
+    //(duplicate)
+    bool dup = false;
+    rand = uniform(0, 1) * 10;
+    if((rand< par("duplicateRand").doubleValue()) && duplictable){
+        EV << "Duplicate happened " << endl;
+        dup = true;
+    }
+
     int delayRand = uniform(0, 1) * 10;
     if (delayRand < par("delayRand").doubleValue() && delayable)
     {
@@ -389,7 +392,7 @@ void Node::printStatistics(){
     else EV<<"useful data transmitted %: "<< 0 <<", "<<endl;
     EV<<"---------------------------------"<<endl;
     if(!iTerminate || fileIterator%(windowSize+1) != ackExpected){
-        scheduleAt(simTime() + 3, new cMessage("stats"));
+        scheduleAt(simTime() + par("STATS_INTERVAL").doubleValue(), new cMessage("stats"));
     }
 
 }
@@ -404,7 +407,6 @@ void Node::printStatisticsGeneral(){
     else EV<<"useful data transmitted %: "<< 0 <<", "<<endl;
     EV<<"---------------------------------"<<endl;
     int n = getParentModule()->par("workingCount").intValue();
-    if(getParentModule()->par("terminateCount").intValue() < n)
-        scheduleAt(simTime() + 3, new cMessage("statsGeneral"));
+    scheduleAt(simTime() + par("STATS_INTERVAL").doubleValue(), new cMessage("statsGeneral"));
 }
 

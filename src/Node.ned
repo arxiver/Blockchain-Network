@@ -22,10 +22,10 @@ simple Node
 {
     parameters:
         int m = default(3);
-        double delayRand = default(10.0);
-        double duplicateRand = default(10.0);
-        double lossRand = default(10.0);
-        double modificationRand = default(10.0);
+        double delayRand = default(3.0);
+        double duplicateRand = default(3.0);
+        double lossRand = default(3.0);
+        double modificationRand = default(3.0);
     gates:
         input ins[];
         output outs[];

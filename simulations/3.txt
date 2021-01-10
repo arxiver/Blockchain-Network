@@ -1,10 +1,7 @@
-Tomorrow
-will
-bring
-something
-new,
-so
-leave
-today
-as
-a memory.
+1/7.Hello iam node 1
+2/7.A flower, sometimes known as
+3/7.a bloom or blossom,
+4/7.is the reproductive
+5/7.structure found in
+6/7.flowering plants
+7/7.end node 1

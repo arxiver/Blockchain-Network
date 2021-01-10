@@ -106,7 +106,8 @@ void Node::initialize()
     }
     scheduleAt(simTime() + REINIT_INTERVAL, new cMessage("reinitialize"));
     findMyPeer();
-    EV<<getIndex()<<", "<<peerIndex<<endl;
+    if (peerIndex != -1)
+    EV<<getIndex()<<" is connected to "<<peerIndex<<endl;
     peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
     if (peerIndex == -1) return;
 
@@ -167,7 +168,8 @@ void Node::handleMessage(cMessage *msg)
         }
         else if(!(strcmp(msg->getName(), "timeout"))){
             nextFrameToSend = ackExpected;
-            EV << getIndex() <<" timeout "<<endl;
+            EV<<"time out for message :"+buffer[0] + ", frame number is "<< ackExpected <<endl;
+            //EV << getIndex() <<" timeout "<<"endl;
             for(int i=0; i<buffer.size(); ++i){
                 retransmittedCount++;
                 int temp = getParentModule()->par("retransmittedCount").intValue();
@@ -175,6 +177,7 @@ void Node::handleMessage(cMessage *msg)
                 MyMessage_Base *sendMsg = makeMessage(buffer[i], MODIFIABLE, false);
                 sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
                 increment(nextFrameToSend);
+                printState("retransmission",buffer[i]);
             }
         }
     }
@@ -182,8 +185,8 @@ void Node::handleMessage(cMessage *msg)
         MyMessage_Base *receivedMsg = check_and_cast<MyMessage_Base *>(msg);
         // checkError i.e. (if it error free) if there is no error acknowledge it else discard it
         bool isErrorFree = checkError(receivedMsg->getMPayload(), receivedMsg->getCheckBits());
+        std::string payload = byteDestuffing(receivedMsg->getMPayload());
         if (isErrorFree && framExpected == receivedMsg->getSeqNum()){
-            std::string payload = byteDestuffing(receivedMsg->getMPayload());
             increment(framExpected);
             while(between(ackExpected,receivedMsg->getAck(),nextFrameToSend)){
                 usefulSentCount++;
@@ -197,9 +200,14 @@ void Node::handleMessage(cMessage *msg)
                 nBuffered--;
                 increment(ackExpected);
             }
+            printState("receiving",payload);
         }
-        std::string payload = byteDestuffing(receivedMsg->getMPayload());
-        printState("receiving",payload);
+        else if (receivedMsg->getMType() == 0 && !isErrorFree) {
+            printState("error detected",payload);
+        }
+        else if ((receivedMsg->getMType() == 0 && isErrorFree)){
+            printState("discarded.",payload);
+        }
         if (receivedMsg->getMType() == 1){
             iTerminate = true;
             ackExpected = fileIterator%(windowSize+1);
@@ -207,7 +215,7 @@ void Node::handleMessage(cMessage *msg)
             getParentModule()->par("terminateCount").setIntValue(temp + 1);
         }
         else if(iTerminate && fileIterator%(windowSize+1) == ackExpected) {
-            EV<<" I terminated at: "<<fileIterator%(windowSize+1)<<" "<<ackExpected<<endl;
+            EV<<" Node no. "<< getIndex() <<" terminated, and its peer node no. "<<peerIndex<<endl;
             clearTimeoutEvents();
             MyMessage_Base *sendMsg = makeMessage("end", false, true);
             send(sendMsg,"outs",peerIndex);
@@ -225,7 +233,7 @@ void Node::handleMessage(cMessage *msg)
 }
 void Node::printState(std::string state,std::string msg){
     EV<<"-----------"<<state<<"-----------------"<<endl;
-    EV<<"Node: "<< getIndex() <<" "<<state<<" '"<<msg<<"' ,"<<endl;
+    EV<<"Node: "<< getIndex() <<" "<<state<<" payload: '"<<msg<<"' ,"<<endl;
     EV<<"S: "<< nextFrameToSend<<", ";
     EV<<"Sf: "<< ackExpected<<", ";
     EV<<"R: "<< framExpected<<", ";
@@ -305,8 +313,10 @@ bool Node::modification(std::string &mypayload, bool modifiable){
         int randBit = uniform(0, 7); // random bit in a char
         unsigned char oneBitRandom = std::pow(2, randBit);
         int randByte = uniform(0, mypayload.length()); // random char
+        EV<<"Before modification '"<<mypayload<<"'"<<endl;
         mypayload[randByte] = (unsigned char)mypayload[randByte] ^ oneBitRandom;
         EV << "modifying message, modified bit = " << std::to_string(randBit) << ", modified char = " << std::to_string(randByte) << endl;
+        EV<<"After  modification '"<<mypayload<<"'"<<endl;
         return true;
     }
     return false;
@@ -333,6 +343,7 @@ void Node::clearTimeoutEvents(){
 
 std::string Node::byteStuffing(std::string s)
 {
+    EV<<"Before byte stuffing '"<<s<<"' "<<endl;
     std::string result = "";
     char flag = 'f';
     char escape = 'e';
@@ -343,20 +354,24 @@ std::string Node::byteStuffing(std::string s)
             result+=escape;
         result+=s[i];
     }
+    EV<<"After  byte stuffing '"<<result<<"' "<<endl;
     return result;
 }
 
 std::string Node::byteDestuffing(std::string s)
 {
+    EV<<"Before byte de-stuffing '"<<s<<"' "<<endl;
     std::string result = "";
     char escape = 'e';
 
-    for(int i=0;i+1<s.length();i++)
+    for(int i=0;i<s.length();i++)
     {
         if(s[i]==escape)
             i++;
-        result+=s[i];
+        if(i<s.length())
+            result+=s[i];
     }
+    EV<<"After  byte de-stuffing '"<<result<<"' "<<endl;
     return result;
 }
 

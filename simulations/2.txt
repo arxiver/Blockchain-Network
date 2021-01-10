@@ -1,12 +1,8 @@
-Weather
-is
-not
-trivial - it's
-especially
-important 
-when
-you're
-standing
-in
-it.
-Tomorrow
+1/8.Hello iam node 3
+2/8.The violin,
+3/8.sometimes known as a fiddle
+4/8.is a wooden chordophone
+5/8.in the violin family.
+6/8.Most violins have a 
+7/8.hollow wooden body
+8/8.end node 3

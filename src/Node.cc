@@ -104,13 +104,15 @@ void Node::initialize()
         if(generatedCount == 0)
             scheduleAt(simTime() + STATS_INTERVAL, new cMessage("statsGeneral"));
     }
+    if (generatedCount==0){
+        readMessagesFile();
+    }
     scheduleAt(simTime() + REINIT_INTERVAL, new cMessage("reinitialize"));
     findMyPeer();
     if (peerIndex != -1)
     EV<<getIndex()<<" is connected to "<<peerIndex<<endl;
     peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
     if (peerIndex == -1) return;
-
     double interval = uniform(0,NETWORK_INTERVAL);
     scheduleAt(simTime() + interval, new cMessage("network"));
 //    if(generatedCount == 0)
@@ -124,7 +126,7 @@ void Node::initialize()
     iTerminate = false;
     buffer.clear();
     this->clearTimeoutEvents();
-    readMessagesFile();
+
 }
 
 void Node::handleMessage(cMessage *msg)

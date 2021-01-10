@@ -102,18 +102,18 @@ void Node::initialize()
     if (getIndex()==0){
         organize();
         if(generatedCount == 0)
-            scheduleAt(simTime() + STATS_INTERVAL, new cMessage("statsGeneral"));
+            scheduleAt(simTime() + par("STATS_INTERVAL").doubleValue(), new cMessage("statsGeneral"));
     }
     if (generatedCount==0){
         readMessagesFile();
     }
-    scheduleAt(simTime() + REINIT_INTERVAL, new cMessage("reinitialize"));
+    scheduleAt(simTime() + par("REINIT_INTERVAL").doubleValue(), new cMessage("reinitialize"));
     findMyPeer();
     if (peerIndex != -1)
     EV<<getIndex()<<" is connected to "<<peerIndex<<endl;
     peerIndex = peerIndex > getIndex() ? peerIndex-1 : peerIndex;
     if (peerIndex == -1) return;
-    double interval = uniform(0,NETWORK_INTERVAL);
+    double interval = uniform(0,par("NETWORK_INTERVAL").doubleValue());
     scheduleAt(simTime() + interval, new cMessage("network"));
 //    if(generatedCount == 0)
 //        scheduleAt(simTime() + 3, new cMessage("stats"));
@@ -163,8 +163,8 @@ void Node::handleMessage(cMessage *msg)
             int temp = getParentModule()->par("generatedCount").intValue();
             getParentModule()->par("generatedCount").setIntValue(temp+1);
             iTerminate = fileIterator == messages.size();
-            MyMessage_Base *sendMsg = makeMessage(s, MODIFIABLE, false);
-            sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
+            MyMessage_Base *sendMsg = makeMessage(s, par("MODIFIABLE").boolValue(), false);
+            sendData(sendMsg, peerIndex, par("DELAYABLE").boolValue(), par("LOSSABLE").boolValue(), par("DUPLICTABLE").boolValue());
             increment(nextFrameToSend);
             printState("sending",messages[fileIterator-1]);
         }
@@ -176,8 +176,8 @@ void Node::handleMessage(cMessage *msg)
                 retransmittedCount++;
                 int temp = getParentModule()->par("retransmittedCount").intValue();
                 getParentModule()->par("retransmittedCount").setIntValue(temp+1);
-                MyMessage_Base *sendMsg = makeMessage(buffer[i], MODIFIABLE, false);
-                sendData(sendMsg, peerIndex, DELAYABLE, LOSSABLE, DUPLICTABLE);
+                MyMessage_Base *sendMsg = makeMessage(buffer[i], par("MODIFIABLE").boolValue(), false);
+                sendData(sendMsg, peerIndex, par("DELAYABLE").boolValue(), par("LOSSABLE").boolValue(), par("DUPLICTABLE").boolValue());
                 increment(nextFrameToSend);
                 printState("retransmission",buffer[i]);
             }
@@ -229,7 +229,7 @@ void Node::handleMessage(cMessage *msg)
 
     if(nBuffered < windowSize){
         nBuffered++;
-        double interval = uniform(0,NETWORK_INTERVAL);
+        double interval = uniform(0,par("NETWORK_INTERVAL").doubleValue());
         scheduleAt(simTime() + interval, new cMessage("network"));
     }
 }
@@ -258,7 +258,7 @@ MyMessage_Base* Node::makeMessage(std::string s, bool modifiable=false, bool isL
         timers[nextFrameToSend] = nullptr;
     }
     timers[nextFrameToSend] = new cMessage("timeout");
-    scheduleAt(simTime() + TIMEOUT_INTERVAL, timers[nextFrameToSend]);
+    scheduleAt(simTime() + par("TIMEOUT_INTERVAL").doubleValue(), timers[nextFrameToSend]);
     return msg;
 }
 
@@ -294,9 +294,9 @@ void Node::sendData(MyMessage_Base *msg, int dest, bool delayable, bool lossable
     int delayRand = uniform(0, 1) * 10;
     if (delayRand < par("delayRand").doubleValue() && delayable)
     {
-        EV << "delaying message with "<< TIMEOUT_INTERVAL + 0.1 << " seconds " << endl;
-        sendDelayed(msg, TIMEOUT_INTERVAL + 0.1, "outs", dest);
-        if(dup) sendDelayed(msg->dup(), TIMEOUT_INTERVAL + 0.1 , "outs", dest);
+        EV << "delaying message with "<< par("TIMEOUT_INTERVAL").doubleValue() + 0.1 << " seconds " << endl;
+        sendDelayed(msg, par("TIMEOUT_INTERVAL").doubleValue() + 0.1, "outs", dest);
+        if(dup) sendDelayed(msg->dup(), par("TIMEOUT_INTERVAL").doubleValue() + 0.1 , "outs", dest);
     }
     else
     {

@@ -21,11 +21,19 @@ package blockchain;
 simple Node
 {
     parameters:
-        int m = default(3);
-        double delayRand = default(3.0);
-        double duplicateRand = default(3.0);
-        double lossRand = default(3.0);
-        double modificationRand = default(3.0);
+        int m = default(2);
+        double delayRand = default(1.0);
+        double duplicateRand = default(1.0);
+        double lossRand = default(1.0);
+        double modificationRand = default(1.0);
+        double TIMEOUT_INTERVAL = default(0.7);
+        double STATS_INTERVAL = default(180);
+        double REINIT_INTERVAL = default(30);
+        double NETWORK_INTERVAL = default(0.5);
+        bool MODIFIABLE = default(false);
+        bool DELAYABLE = default(false);
+        bool LOSSABLE = default(false);
+        bool DUPLICTABLE = default(false);
     gates:
         input ins[];
         output outs[];

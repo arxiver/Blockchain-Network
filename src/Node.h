@@ -16,15 +16,6 @@
 #ifndef __BLOCKCHAIN_NODE_H_
 #define __BLOCKCHAIN_NODE_H_
 
-#define TIMEOUT_INTERVAL 0.7
-#define STATS_INTERVAL 180
-#define REINIT_INTERVAL 30
-#define NETWORK_INTERVAL 0.5
-#define MODIFIABLE false
-#define DELAYABLE false
-#define LOSSABLE false
-#define DUPLICTABLE false
-
 #include <omnetpp.h>
 #include <vector>
 #include <algorithm>
